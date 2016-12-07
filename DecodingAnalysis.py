@@ -121,9 +121,9 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['presac_retino', 'postsac']
+    conditions += ['presac', 'postsac', 'postsac_change']
 
-    colors = ['blue', 'black']
+    colors = ['blue', 'black', 'red']
 
     # Choose the file to analyse
     files = []
@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
     main(['decoding', 'smooth', 'savemat'], files, conditions)
 
-    main(['firing rate', 'pink', 'savemat'], files, conditions)
+    main(['firing rate', 'raw', 'savemat'], files, conditions)
 
     main(['write'], files, conditions)
 

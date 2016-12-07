@@ -218,8 +218,13 @@ class NeuronArray:
 
         if not os.path.exists('%sdecoding/' % figpath):
             os.makedirs('%sdecoding/' % figpath)
-        print('%sdecoding/%s_%s' % (figpath, file, name))
-        plt.savefig('%sdecoding/%s_%s' % (figpath, file, name))
+        filepath = '%sdecoding/%s_%s' % (figpath, file, name)
+        i = 0
+        while os.path.isfile('%s%i' % (filepath, i)):
+            i += 1
+
+        filepath = '%s%i' % (filepath, i)
+        plt.savefig(filepath)
         plt.close(fig)
 
     @staticmethod
@@ -295,7 +300,13 @@ class NeuronArray:
         if not os.path.exists('%sfiring_rate/' % figpath):
             os.makedirs('%sfiring_rate/' % figpath)
 
-        plt.savefig('%sfiring_rate/%s%s_pop_FR' % (figpath, file, normal))
+        filepath = '%sfiring_rate/%s%s_pop_FR' % (figpath, file, normal)
+        i = 0
+        while os.path.isfile('%s%i' % (filepath, i)):
+            i += 1
+
+        filepath = '%s%i' % (filepath, i)
+        plt.savefig(filepath)
         plt.close(fig)
 
         if savemat:
