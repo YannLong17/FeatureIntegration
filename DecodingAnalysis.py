@@ -11,14 +11,8 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 
 from NeuronArray import NeuronArray as NA
+from HelperFun import load
 
-def load(file):
-    """
-    :param file: path to a .mat file
-    :return: data structure located at file
-    """
-    dat = sio.loadmat(file, squeeze_me=False)
-    return dat
 
 def main(args, files, conditions):
     for file in files:
@@ -33,7 +27,7 @@ def main(args, files, conditions):
         neuron_array_list = []
         for i in range(len(conditions)):
             neuron_array = NA(data, conditions[i], colors[i], location=location, n_locations=n_locations)
-            neuron_array.cell_selection(alpha)
+            neuron_array.cell_selection_kosher(alpha=0.05)
             print(neuron_array.condition, neuron_array.visual_latency.mean(), neuron_array.n_cell)
             neuron_array_list.append(neuron_array)
 
@@ -60,7 +54,6 @@ def main(args, files, conditions):
 
             if 'savemat' in args:
                 mydict['tuningParam'] = tempdict
-
 
         if 'decoding' in args:
             # choose the learner
@@ -131,13 +124,13 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['presac', 'postsac']
+    conditions += ['presac', 'postsac', 'postsac_change']
 
-    colors = ['blue', 'black']
+    colors = ['blue', 'black', 'red']
 
     # Choose the file to analyse
     files = []
-    files += ['p095']
+    files += ['p112']
 
     # Number of location, location of interest
     n_locations = 1
@@ -159,10 +152,10 @@ if __name__ == '__main__':
 
         # 'write': output basic information to a text file
 
-    # main(['decoding', 'smooth', 'savemat'], files, conditions)
+    main(['decoding', 'smooth', 'savemat'], files, conditions)
 
     main(['firing rate', 'raw', 'savemat'], files, conditions)
 
-    # main(['write'], files, conditions)
+    main(['write'], files, conditions)
 
-    # main(['tuning curve', 'savemat'], files, conditions)
+    main(['tuning curve', 'savemat'], files, conditions)
