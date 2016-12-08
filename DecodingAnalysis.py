@@ -52,6 +52,16 @@ def main(args, files, conditions):
             else:
                 NA.plot_firing_rate(neuron_array_list, figpath, file, normal=normal)
 
+        if 'tuning curve' in args:
+
+            tempdict = {}
+            for na in neuron_array_list:
+                tempdict[na.condition] = na.plot_tuning_curves(figpath, file)
+
+            if 'savemat' in args:
+                mydict['tuningParam'] = tempdict
+
+
         if 'decoding' in args:
             # choose the learner
             # Uncomment the learner you want to use
@@ -121,13 +131,13 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['presac', 'postsac', 'postsac_change']
+    conditions += ['presac', 'postsac']
 
-    colors = ['blue', 'black', 'red']
+    colors = ['blue', 'black']
 
     # Choose the file to analyse
     files = []
-    files += ['p112']
+    files += ['p095']
 
     # Number of location, location of interest
     n_locations = 1
@@ -143,13 +153,16 @@ if __name__ == '__main__':
             # 'pink': percentage increase with respect to baseline
             # 'sub': substract baseline
 
+        # 'tuning curve' -- plot the tuning curve for each good cell at visual latency
+
         # 'savemat': saves the graph data to a matlab file
 
         # 'write': output basic information to a text file
 
-    main(['decoding', 'smooth', 'savemat'], files, conditions)
+    # main(['decoding', 'smooth', 'savemat'], files, conditions)
 
     main(['firing rate', 'raw', 'savemat'], files, conditions)
 
-    main(['write'], files, conditions)
+    # main(['write'], files, conditions)
 
+    # main(['tuning curve', 'savemat'], files, conditions)
