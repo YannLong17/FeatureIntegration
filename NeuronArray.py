@@ -57,7 +57,7 @@ class NeuronArray:
 
         self.n_trial, self.n_cell, _ = self.X.shape
         self.good_cells = np.arange(self.n_cell)
-        self.visual_latency = np.empty((self.n_cell,))
+        self.visual_latency = np.ones((self.n_cell,)) * 0.125
         self.remap_cells = np.zeros(self.good_cells.shape)
         self.remap_latency = np.zeros(self.good_cells.shape)
 
@@ -104,7 +104,7 @@ class NeuronArray:
                  if not good_cells[i,]:
                      if self.p_val_kosher[i, t] < alpha:
                          good_cells[i,] = 1
-                         self.visual_latency[i,] = self.edges[t]
+                         # self.visual_latency[i,] = self.edges[t]
 
         self.good_cells = np.nonzero(good_cells)[0]
         self.visual_latency = self.visual_latency[np.nonzero(good_cells)[0]]
