@@ -1,6 +1,18 @@
 import numpy as np
+from scipy.stats import ks_2samp
+import scipy.io as sio
+
 
 # Helper Function
+def load(file):
+    """
+    :param file: path to a .mat file
+    :return: data structure located at file
+    """
+    dat = sio.loadmat(file, squeeze_me=False)
+    return dat
+
+
 def build_static(dat, condition, times, location=0, n_locations=1, noProbe=False):
     """
     Forms a firing rate matrix X (n_trials, n_cells, n_times), along with a the corresponding orientation Y (n_trials,)
@@ -42,6 +54,30 @@ def build_static(dat, condition, times, location=0, n_locations=1, noProbe=False
 
     return X, y
 
+
+def ks_test(X, X_no):
+    _, n_cell, n_time = X.shape
+    P_val = np.ones((n_cell, n_time))
+
+    for t in range(n_time):
+        for i in range(n_cell):
+            D, pval = ks_2samp(X_no[:, i, t], X[:, i, t])
+            P_val[i, t] = pval
+
+    return P_val
+
+
+def ks_test_baseline(X, baseline_mask):
+    baseline = X[:, :, baseline_mask].mean(axis=2)
+    _, n_cell, n_time = X.shape
+    P_val = np.ones((n_cell, n_time))
+
+    for t in range(n_time):
+        for i in range(n_cell):
+            D, pval = ks_2samp(baseline[:, i], X[:, i, t])
+            P_val[i, t] = pval
+
+    return P_val
 
 def find_peak(x, y):
     max = 0
