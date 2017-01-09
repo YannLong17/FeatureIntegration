@@ -11,6 +11,7 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 
 from NeuronArray import NeuronArray as NA
+from HelperFun import load
 
 def load(file):
     """
@@ -33,8 +34,13 @@ def main(args, files, conditions):
         neuron_array_list = []
         for i in range(len(conditions)):
             neuron_array = NA(data, conditions[i], colors[i], location=location, n_locations=n_locations)
-            neuron_array.cell_selection(alpha)
+            if kosher:
+                neuron_array.cell_selection_kosher(alpha)
+            else:
+                neuron_array.cell_selection(alpha)
+
             print(neuron_array.condition, neuron_array.visual_latency.mean(), neuron_array.n_cell)
+            print(neuron_array.good_cells)
             neuron_array_list.append(neuron_array)
 
         if 'savemat' in args:
@@ -61,13 +67,12 @@ def main(args, files, conditions):
             if 'savemat' in args:
                 mydict['tuningParam'] = tempdict
 
-
         if 'decoding' in args:
             # choose the learner
             # Uncomment the learner you want to use
-            learner = ExtraTreesClassifier(n_estimators=500, bootstrap=True, class_weight='balanced_subsample')
+            learner = ExtraTreesClassifier(n_estimators=5000, bootstrap=True, class_weight='balanced_subsample')
             # learner = SVC(kernel='linear', C=0.00002, class_weight='balanced', decision_function_shape='ovr')
-            # learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=1)
+            # learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
             # learner = PoissonNB()
             name = 'ET'  # Will appear in title and file name
 
@@ -142,6 +147,9 @@ if __name__ == '__main__':
     # Number of location, location of interest
     n_locations = 1
     location = 0
+
+    # Cell selection kosher
+    kosher = True
 
     # Main: Options
         # 'decoding' -- plot the decoding time course for conditions

@@ -31,12 +31,37 @@ class NeuronArray:
 
         # data
         self.X, self.Y = build_static(data, condition, np.arange(self.n_time), location=location, n_locations=n_locations)
-        self.X_no, _ = build_static(data, condition, np.arange(self.n_time), location=location, n_locations=n_locations, noProbe=True)
+
+        self.X_no, _ = build_static(data, condition, np.arange(self.n_time), location=location,
+                                    n_locations=n_locations, noProbe=True)
+
+        self.p_val = ks_test(self.X, self.X_no)
+
+        if 'presac_retino_only' in data.keys():
+            self.X_fix, self.Y_fix = build_static(data, 'presac_retino_only', np.arange(self.n_time), location=location,
+                                        n_locations=n_locations)
+            self.X_fix_no, _ = build_static(data, 'presac_retino_only', np.arange(self.n_time), location=location,
+                                   n_locations=n_locations, noProbe=True)
+
+            # baseline_mask = np.where((self.edges > -0.5) & (self.edges < -0.2))[0]
+            # self.p_val = ks_test_baseline(self.X_fix, baseline_mask)
+            self.p_val_kosher = ks_test(self.X_fix, self.X_fix_no)
+
+        if 'presac_only' in data.keys():
+            self.X_remap, self.Y_remap = build_static(data, 'presac_only', np.arange(self.n_time), location=location,
+                                        n_locations=n_locations)
+            self.X_remap_no, _ = build_static(data, 'presac_only', np.arange(self.n_time), location=location,
+                                                      n_locations=n_locations, noProbe=True)
+            # self.X_remap = self.X_remap - self.X_remap_no.mean(axis=0)[np.newaxis, ...]
+            # baseline_mask = np.where((self.edges > -0.5) & (self.edges < -0.2))[0]
+            # self.remap_pval = ks_test_baseline(self.X_remap, baseline_mask)
+            self.p_val_koshe = ks_test(self.X_remap, self.X_remap_no)
 
         self.n_trial, self.n_cell, _ = self.X.shape
-        self.p_val = self.ks_test()
         self.good_cells = np.arange(self.n_cell)
-        self.visual_latency = np.empty((self.n_cell,))
+        self.visual_latency = np.ones((self.n_cell,)) * 0.125
+        self.remap_cells = np.zeros(self.good_cells.shape)
+        self.remap_latency = np.zeros(self.good_cells.shape)
 
         self.decoding_tc = np.zeros((self.n_time,))
         self.decoding_tc_err = np.zeros((self.n_time,))
@@ -70,6 +95,35 @@ class NeuronArray:
         self.visual_latency = self.visual_latency[np.nonzero(good_cells)[0]]
         self.X = self.X[:, self.good_cells, :]
         self.n_trial, self.n_cell, _ = self.X.shape
+
+    def cell_selection_kosher(self, alpha):
+        good_cells = np.zeros((self.n_cell,))
+        visual_lat = - 0.1
+        idx = np.argmin(np.abs(self.edges - visual_lat))
+        idx = [idx-1, idx, idx +1]
+        for t in idx:
+             for i in range(self.n_cell):
+                 if not good_cells[i,]:
+                     if self.p_val_kosher[i, t] < alpha:
+                         good_cells[i,] = 1
+                         # self.visual_latency[i,] = self.edges[t]
+
+        self.good_cells = np.nonzero(good_cells)[0]
+        self.visual_latency = self.visual_latency[np.nonzero(good_cells)[0]]
+        self.X = self.X[:, self.good_cells, :]
+        self.n_trial, self.n_cell, _ = self.X.shape
+
+    def remap_cell_selection(self, alpha):
+        self.remap_cell = np.zeros(self.good_cells.shape, dtype=bool)
+        self.remap_latency = np.zeros(self.good_cells.shape)
+        idx = np.where(self.edges >0)[0]
+        for t in idx:
+            for i in range(self.n_cell):
+                if not self.remap_cell[i,]:
+                    if self.remap_pval[i, t] < alpha:
+                        self.remap_cell[i,] = 1
+                        self.remap_latency[i,] = self.edges[t]
+
 
     @staticmethod
     def equalize_trials(neuron_array_list):
