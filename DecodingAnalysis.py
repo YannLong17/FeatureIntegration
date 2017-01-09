@@ -67,7 +67,7 @@ def main(args, files, conditions):
             # Uncomment the learner you want to use
             learner = ExtraTreesClassifier(n_estimators=500, bootstrap=True, class_weight='balanced_subsample')
             # learner = SVC(kernel='linear', C=0.00002, class_weight='balanced', decision_function_shape='ovr')
-            # learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
+            # learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=1)
             # learner = PoissonNB()
             name = 'ET'  # Will appear in title and file name
 
@@ -131,13 +131,13 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['presac', 'postsac']
+    conditions += ['presac', 'postsac', 'postsac_change']
 
-    colors = ['blue', 'black']
+    colors = ['blue', 'black', 'red']
 
     # Choose the file to analyse
     files = []
-    files += ['p095']
+    files += ['p087']
 
     # Number of location, location of interest
     n_locations = 1
@@ -159,10 +159,10 @@ if __name__ == '__main__':
 
         # 'write': output basic information to a text file
 
-    # main(['decoding', 'smooth', 'savemat'], files, conditions)
+    main(['decoding', 'smooth', 'savemat'], files, conditions)
 
     main(['firing rate', 'raw', 'savemat'], files, conditions)
 
-    # main(['write'], files, conditions)
+    main(['write'], files, conditions)
 
-    # main(['tuning curve', 'savemat'], files, conditions)
+    main(['tuning curve', 'savemat'], files, conditions)

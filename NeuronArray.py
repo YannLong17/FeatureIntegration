@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import os
+import os, glob
 from scipy.stats import ks_2samp
 
 # Sklearn
@@ -221,7 +221,7 @@ class NeuronArray:
             os.makedirs('%sdecoding/' % figpath)
         filepath = '%sdecoding/%s_%s' % (figpath, file, name)
         i = 0
-        while os.path.isfile('%s%i' % (filepath, i)):
+        while glob.glob('%s%i.*' % (filepath, i)):
             i += 1
 
         filepath = '%s%i' % (filepath, i)
@@ -302,7 +302,7 @@ class NeuronArray:
 
         filepath = '%sfiring_rate/%s%s_pop_FR' % (figpath, file, normal)
         i = 0
-        while os.path.isfile('%s%i' % (filepath, i)):
+        while glob.glob('%s%i.*' % (filepath, i)):
             i += 1
 
         filepath = '%s%i' % (filepath, i)
@@ -353,8 +353,16 @@ class NeuronArray:
         fig.legend(handles, labels, loc='lower right')
         if not os.path.exists('%stuning_curve/' % figpath):
             os.makedirs('%stuning_curve/' % figpath)
-        fig.savefig('%stuning_curve/%s_%s_tuningCurve' % (figpath, file, self.condition),
-                    dpi=300)
+
+
+        filepath = '%stuning_curve/%s_%s_tuningCurve' % (figpath, file, self.condition)
+        i = 0
+        while glob.glob('%s%i.*' % (filepath, i)):
+            i += 1
+
+        filepath = '%s%i' % (filepath, i)
+
+        fig.savefig(filepath, dpi=300)
         plt.close(fig)
 
         return vonmises_params
