@@ -55,7 +55,7 @@ class NeuronArray:
             # self.X_remap = self.X_remap - self.X_remap_no.mean(axis=0)[np.newaxis, ...]
             # baseline_mask = np.where((self.edges > -0.5) & (self.edges < -0.2))[0]
             # self.remap_pval = ks_test_baseline(self.X_remap, baseline_mask)
-            self.p_val_koshe = ks_test(self.X_remap, self.X_remap_no)
+            self.p_remap_pval = ks_test(self.X_remap, self.X_remap_no)
 
         self.n_trial, self.n_cell, _ = self.X.shape
         self.good_cells = np.arange(self.n_cell)

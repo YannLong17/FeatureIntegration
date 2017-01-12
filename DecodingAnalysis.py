@@ -13,13 +13,6 @@ from sklearn.linear_model import LogisticRegression
 from NeuronArray import NeuronArray as NA
 from HelperFun import load
 
-def load(file):
-    """
-    :param file: path to a .mat file
-    :return: data structure located at file
-    """
-    dat = sio.loadmat(file, squeeze_me=False)
-    return dat
 
 def main(args, files, conditions):
     for file in files:
@@ -142,14 +135,14 @@ if __name__ == '__main__':
 
     # Choose the file to analyse
     files = []
-    files += ['p087']
+    files += ['p120']
 
     # Number of location, location of interest
     n_locations = 1
     location = 0
 
     # Cell selection kosher
-    kosher = True
+    kosher = False
 
     # Main: Options
         # 'decoding' -- plot the decoding time course for conditions
