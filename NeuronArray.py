@@ -10,56 +10,30 @@ from HelperFun import *
 
 
 class NeuronArray:
-    def __init__(self, data, condition, color, n_locations=1, location=0):
+    def __init__(self, data, condition, n_time, n_ort, n_locations=1, location=0):
         self.condition = condition
-        self.col = color
-
 
         # Time axis
         self.edges = np.ravel(data['edges'])
         self.n_time = self.edges.shape[0]
 
-        # Orientations
-        self.angles = np.ravel(data['makeStim']['ort'][0, 0])
-        self.n_ort = self.angles.shape[0]
-
         # Probe Location
         assert location in range(n_locations)
-        assert n_locations == (data[condition].shape[1] - 1) / self.n_ort
+        assert n_locations == (data[condition].shape[1] - 1) / n_ort
         self.n_loc = n_locations
         self.loc = location
 
-        # data
-        self.X, self.Y = build_static(data, condition, np.arange(self.n_time), location=location, n_locations=n_locations)
+        self.X, self.Y = build_static(data, condition, np.arange(n_time), location=location, n_locations=n_locations)
 
-        self.X_no, _ = build_static(data, condition, np.arange(self.n_time), location=location,
+        self.X_no, _ = build_static(data, condition, np.arange(n_time), location=location,
                                     n_locations=n_locations, noProbe=True)
 
-        self.p_val = ks_test(self.X, self.X_no)
-
-        if 'presac_retino_only' in data.keys():
-            self.X_fix, self.Y_fix = build_static(data, 'presac_retino_only', np.arange(self.n_time), location=location,
-                                        n_locations=n_locations)
-            self.X_fix_no, _ = build_static(data, 'presac_retino_only', np.arange(self.n_time), location=location,
-                                   n_locations=n_locations, noProbe=True)
-
-            # baseline_mask = np.where((self.edges > -0.5) & (self.edges < -0.2))[0]
-            # self.p_val = ks_test_baseline(self.X_fix, baseline_mask)
-            self.p_val_kosher = ks_test(self.X_fix, self.X_fix_no)
-
-        if 'presac_only' in data.keys():
-            self.X_remap, self.Y_remap = build_static(data, 'presac_only', np.arange(self.n_time), location=location,
-                                        n_locations=n_locations)
-            self.X_remap_no, _ = build_static(data, 'presac_only', np.arange(self.n_time), location=location,
-                                                      n_locations=n_locations, noProbe=True)
-            # self.X_remap = self.X_remap - self.X_remap_no.mean(axis=0)[np.newaxis, ...]
-            # baseline_mask = np.where((self.edges > -0.5) & (self.edges < -0.2))[0]
-            # self.remap_pval = ks_test_baseline(self.X_remap, baseline_mask)
-            self.p_remap_pval = ks_test(self.X_remap, self.X_remap_no)
-
         self.n_trial, self.n_cell, _ = self.X.shape
+
+        self.p_val = ks_test(self.X, self.X_no)
         self.good_cells = np.arange(self.n_cell)
         self.visual_latency = np.ones((self.n_cell,)) * 0.125
+
         self.remap_cells = np.zeros(self.good_cells.shape)
         self.remap_latency = np.zeros(self.good_cells.shape)
 
@@ -68,8 +42,8 @@ class NeuronArray:
 
         self.baseline = np.zeros((self.n_cell,))
 
-        self.pref_ort = np.zeros((self.n_cell), 'int16')
-        self.null_ort = np.zeros((self.n_cell), 'int16')
+        self.pref_ort = np.zeros((self.n_cell,), 'int16')
+        self.null_ort = np.zeros((self.n_cell,), 'int16')
 
     def ks_test(self):
         P_val = np.ones((self.n_cell, self.n_time))
@@ -123,7 +97,6 @@ class NeuronArray:
                     if self.remap_pval[i, t] < alpha:
                         self.remap_cell[i,] = 1
                         self.remap_latency[i,] = self.edges[t]
-
 
     @staticmethod
     def equalize_trials(neuron_array_list):

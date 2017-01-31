@@ -137,14 +137,10 @@ if __name__ == '__main__':
     files = []
     files += ['p120']
 
-    # Number of location, location of interest
-    n_locations = 1
-    location = 0
-
-    # Cell selection kosher
+    # Cell selection
     kosher = False
 
-    # Main: Options
+    # Main: Args
         # 'decoding' -- plot the decoding time course for conditions
             # 'smooth': causal filter on firing rate
             # 'jumble': remove the correlation stucture
@@ -160,10 +156,13 @@ if __name__ == '__main__':
 
         # 'write': output basic information to a text file
 
-    main(['decoding', 'smooth', 'savemat'], files, conditions)
+    args = []
+    args += ['decoding', 'smooth']
+    args += ['firing rate', 'raw']
+    args += ['tuning curve']
+    args += ['savemat']
 
-    main(['firing rate', 'raw', 'savemat'], files, conditions)
 
-    main(['write'], files, conditions)
+    main(args, files, conditions)
 
-    main(['tuning curve', 'savemat'], files, conditions)
+
