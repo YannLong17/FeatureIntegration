@@ -36,13 +36,13 @@ class RecordingDay:
         self.NA_list = []
         for i in range(n_condition):
             assert conditions[i] in data.keys()
-            self.NA_list.append(NA(data, conditions[i], self.n_time, self.n_ort))
+            self.NA_list.append(NA(data, conditions[i]))
 
         if 'presac_retino_only' in data.keys():
-            self.NA_fix = NA(data, 'presac_retino_only', self.n_time, self.n_ort)
+            self.NA_fix = NA(data, 'presac_retino_only')
 
         if 'presac_only' in data.keys():
-            self.NA_remap = NA(data, 'presac_only', self.n_time, self.n_ort)
+            self.NA_remap = NA(data, 'presac_only')
 
     def equalize_trials(self):
         # find the minimum number of trials
@@ -95,7 +95,7 @@ class RecordingDay:
         plt.savefig(filepath)
         plt.close(fig)
 
-    def plot_firing_rate(self, normal, null_orientation=True, savemat=False):
+    def plot_firing_rate(self, normal, name, null_orientation=True, savemat=False):
         """ find the average and std err firing rate for prefered and null orientation for all times"""
 
         if null_orientation:
@@ -167,7 +167,7 @@ class RecordingDay:
         if not os.path.exists('%sfiring_rate/' % self.figpath):
             os.makedirs('%sfiring_rate/' % self.figpath)
 
-        filepath = '%sfiring_rate/%s%s_pop_FR' % (self.figpath, self.day, normal)
+        filepath = '%sfiring_rate/%s%s%s_pop_FR' % (self.figpath, self.day, normal, name)
         i = 0
         while glob.glob('%s%i.*' % (filepath, i)):
             i += 1

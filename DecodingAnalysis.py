@@ -17,6 +17,7 @@ from HelperFun import load
 
 def main(args, files, conditions):
     for file in files:
+        signature = ''
         figpath = 'results/Decoding Analysis/%s/' % file  # where you want to save the figures
 
         alpha = 0.01
@@ -25,9 +26,24 @@ def main(args, files, conditions):
 
         rd.cell_select(alpha)
 
+        if 'early trial' in args:
+            bounds = [-np.inf, -0.1]
+            signature += 'early'
+        elif 'mid trial' in args:
+            bounds = [-0.1, -0.02]
+            signature += 'mid'
+
+        elif 'late trial' in args:
+            bounds = [-0.02, np.inf]
+            signature += 'late'
+
+        else:
+            bounds = [-np.inf, np.inf]
+
         for na in rd.NA_list:
-            print(na.condition, na.visual_latency.mean(), na.n_cell)
-            print(na.good_cells)
+            na.trial_selection(bounds)
+            print(signature, na.condition, ' Visual Latency: ',  round(na.visual_latency.mean(),3), ' n cell: ',
+            na.n_cell, 'n trial: ', na.n_trial)
 
         if 'savemat' in args:
             mydict = {}
@@ -40,7 +56,7 @@ def main(args, files, conditions):
                 normal = 'sub'
 
             if 'savemat' in args:
-                mydict['firingRate'] = rd.plot_firing_rate(normal=normal, savemat=True)
+                mydict['firingRate'] = rd.plot_firing_rate(normal, signature, savemat=True)
             else:
                 rd.plot_firing_rate(normal=normal)
 
@@ -81,6 +97,8 @@ def main(args, files, conditions):
                 name += '_JB'
                 for na in rd.NA_list:
                     na.jumble()
+
+            name += signature
 
             for na in rd.NA_list:
                 na.decoding(learner, scorer, smooth)
@@ -129,7 +147,7 @@ if __name__ == '__main__':
 
     # Choose the file to analyse
     files = []
-    files += ['p121']
+    files += ['p127']
 
     # Cell selection
     kosher = False
@@ -151,11 +169,12 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    # args += ['decoding', 'smooth']
-    # args += ['firing rate', 'raw']
+    args += ['decoding']
+    args += ['firing rate', 'raw']
     # args += ['tuning curve']
-    # args += ['savemat']
-    args += ['orientation bias']
+    args += ['savemat']
+    # args += ['orientation bias']
+    args += ['mid trial']
 
     main(args, files, conditions)
 

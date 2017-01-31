@@ -10,7 +10,7 @@ from HelperFun import *
 
 
 class NeuronArray:
-    def __init__(self, data, condition, n_time, n_ort, n_locations=1, location=0):
+    def __init__(self, data, condition, n_locations=1, location=0):
         self.condition = condition
 
         # Time axis
@@ -23,13 +23,14 @@ class NeuronArray:
 
         # Probe Location
         assert location in range(n_locations)
-        assert n_locations == (data[condition].shape[1] - 1) / n_ort
+        assert n_locations == (data[condition].shape[1] - 1) / self.n_ort
         # self.n_loc = n_locations
         # self.loc = location
 
-        self.X, self.Y = build_static(data, condition, np.arange(n_time), location=location, n_locations=n_locations)
+        self.X, self.Y, self.probe_lat = build_static(data, condition, np.arange(self.n_time), location=location,
+                                          n_locations=n_locations)
 
-        self.X_no, _ = build_static(data, condition, np.arange(n_time), location=location, n_locations=n_locations,
+        self.X_no, _, _ = build_static(data, condition, np.arange(self.n_time), location=location, n_locations=n_locations,
                                     noProbe=True)
 
         self.n_trial, self.n_cell, _ = self.X.shape
@@ -59,6 +60,14 @@ class NeuronArray:
                 P_val[i, t] = pval
 
         return P_val
+
+    def trial_selection(self, bounds):
+        mini, maxi = bounds
+
+        self.X = self.X[(self.probe_lat > mini) & (self.probe_lat < maxi), ...]
+        self.Y = self.Y[(self.probe_lat > mini) & (self.probe_lat < maxi)]
+        self.probe_lat = self.probe_lat[(self.probe_lat > mini) & (self.probe_lat < maxi)]
+        self.n_trial = self.X.shape[0]
 
     def cell_selection(self, alpha):
         good_cells = np.zeros((self.n_cell,))

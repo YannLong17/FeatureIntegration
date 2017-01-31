@@ -28,6 +28,21 @@ def build_static(dat, condition, times, location=0, n_locations=1, noProbe=False
     n_orientations = (dat['presac'].shape[1] - 1)//n_locations
     X = np.zeros((1, 96, n_times))
     y = np.zeros((1, ))
+    probe_latency = np.zeros((1, ))
+
+    if condition is 'presac':
+        lat_info = 'prbonset1'
+    elif condition is 'postsac':
+        lat_info = 'prbonset2'
+    elif condition is 'postsac_change':
+        lat_info = 'prbonset3'
+    elif condition is 'presac_only':
+        lat_info = 'prbonset4'
+    else:
+        lat_info = False
+
+    if lat_info not in dat.keys():
+        lat_info = False
 
     if noProbe:
         n_trials = dat[condition][0, -1][times, :].shape[1]
@@ -36,6 +51,8 @@ def build_static(dat, condition, times, location=0, n_locations=1, noProbe=False
             X[:, channel, :] = dat[condition][channel, -1][times, :].T
 
         y = np.hstack((y, (np.full((n_trials, ), -1, dtype='int32'))))
+        if lat_info:
+            probe_latency = np.hstack((probe_latency, dat[lat_info][0, -1][0,:]))
 
     else:
         for i, orientation in enumerate(np.arange(location, n_orientations*n_locations, n_locations)):
@@ -46,13 +63,15 @@ def build_static(dat, condition, times, location=0, n_locations=1, noProbe=False
 
             X = np.vstack((X, temp))
             y = np.hstack((y, (np.full((n_trials,), i, dtype='int32'))))
+            if lat_info:
+                probe_latency = np.hstack((probe_latency, dat[lat_info][0, orientation][0,:]))
 
     if n_times == 1:
-        X, y = X[1:, :, 0], y[1:, ]
+        X, y, probe_latency = X[1:, :, 0], y[1:, ], probe_latency[1:, ]
     else:
-        X, y = X[1:, ...], y[1:, ]
+        X, y, probe_latency = X[1:, ...], y[1:, ], probe_latency[1:, ]
 
-    return X, y
+    return X, y, probe_latency
 
 
 def ks_test(X, X_no):
