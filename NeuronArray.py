@@ -45,7 +45,7 @@ class NeuronArray:
 
             # baseline_mask = np.where((self.edges > -0.5) & (self.edges < -0.2))[0]
             # self.p_val = ks_test_baseline(self.X_fix, baseline_mask)
-            self.p_val_kosher = ks_test(self.X_fix, self.X_fix_no)
+            # self.p_val_kosher = ks_test(self.X_fix, self.X_fix_no)
 
         if 'presac_only' in data.keys():
             self.X_remap, self.Y_remap = build_static(data, 'presac_only', np.arange(self.n_time), location=location,
@@ -124,6 +124,14 @@ class NeuronArray:
                         self.remap_cell[i,] = 1
                         self.remap_latency[i,] = self.edges[t]
 
+    @staticmethod
+    def equalize_cells(neuron_array_list):
+        good_cells = np.arange(96)
+        for na in neuron_array_list:
+            good_cells = np.intersect1d(na.good_cells, good_cells)
+
+        for na in neuron_array_list:
+            na.good_cells = good_cells
 
     @staticmethod
     def equalize_trials(neuron_array_list):

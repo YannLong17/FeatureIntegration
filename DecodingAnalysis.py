@@ -36,6 +36,10 @@ def main(args, files, conditions):
             print(neuron_array.good_cells)
             neuron_array_list.append(neuron_array)
 
+        if 'equalize_cell' in args:
+            NA.equalize_cells(neuron_array_list)
+            print('Cell Equalized')
+
         if 'savemat' in args:
             mydict = {}
 
@@ -63,11 +67,11 @@ def main(args, files, conditions):
         if 'decoding' in args:
             # choose the learner
             # Uncomment the learner you want to use
-            learner = ExtraTreesClassifier(n_estimators=5000, bootstrap=True, class_weight='balanced_subsample')
+            # learner = ExtraTreesClassifier(n_estimators=5000, bootstrap=True, class_weight='balanced_subsample')
             # learner = SVC(kernel='linear', C=0.00002, class_weight='balanced', decision_function_shape='ovr')
-            # learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
+            learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
             # learner = PoissonNB()
-            name = 'ET'  # Will appear in title and file name
+            name = 'LR'  # Will appear in title and file name
 
             # choose the scorer
             from sklearn.metrics import accuracy_score, make_scorer
@@ -77,12 +81,13 @@ def main(args, files, conditions):
             name += '_eq'
 
             # smoothin param
-            tau = 0.1
+            tau = 0.5
 
             if 'smooth' in args:
                 name += '_tau%i' % int(tau * 1000)
                 for na in neuron_array_list:
                     na.smooth(tau)
+            else: tau = 0;
 
             if 'jumble' in args:
                 name += '_JB'
@@ -102,17 +107,24 @@ def main(args, files, conditions):
                 mydict['decoding'] = tempdict
 
         if 'savemat' in args:
-            if os.path.isfile('%s%s_data.mat' % (figpath, file)):
-                print('old exists ')
-                olddict = sio.loadmat('%s%s_data.mat' % (figpath, file))
-                mydict = {**olddict, **mydict}
-
             tempdict = {}
             for na in neuron_array_list:
                 tempdict[na.condition] = {'time': na.edges.ravel(), 'visual_latency': na.visual_latency, 'good_cells': na.good_cells}
 
             mydict['info'] = tempdict
-            # print(mydict)
+
+
+            if os.path.isfile('%s%s_data.mat' % (figpath, file)):
+                print('old exists ')
+                olddict = sio.loadmat('%s%s_data.mat' % (figpath, file))
+                for key in mydict.keys():
+                    i = 0
+                    while '%s%i' % (key, i) in olddict.keys():
+                        i += 1
+
+                    mydict['%s%i' % (key, i)] = mydict.pop(key)
+
+                mydict = {**mydict, **olddict}
 
             sio.savemat('%s%s_data.mat' % (figpath, file), mdict=mydict)
 
@@ -135,7 +147,7 @@ if __name__ == '__main__':
 
     # Choose the file to analyse
     files = []
-    files += ['p120']
+    files += ['p126']
 
     # Number of location, location of interest
     n_locations = 1
@@ -160,10 +172,10 @@ if __name__ == '__main__':
 
         # 'write': output basic information to a text file
 
-    main(['decoding', 'smooth', 'savemat'], files, conditions)
+    main(['decoding', 'equalize_cell', 'smooth' 'savemat'], files, conditions)
 
-    main(['firing rate', 'raw', 'savemat'], files, conditions)
+    main(['firing rate', 'equalize_cell', 'pink', 'savemat'], files, conditions)
 
     main(['write'], files, conditions)
 
-    main(['tuning curve', 'savemat'], files, conditions)
+    # main(['tuning curve', 'savemat'], files, conditions)
