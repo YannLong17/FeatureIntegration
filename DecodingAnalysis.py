@@ -11,6 +11,7 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 
 from NeuronArray import NeuronArray as NA
+from RecordingDay import RecordingDay as RD
 from HelperFun import load
 
 
@@ -23,18 +24,13 @@ def main(args, files, conditions):
 
         alpha = 0.01
 
-        data = load(path)
-        neuron_array_list = []
-        for i in range(len(conditions)):
-            neuron_array = NA(data, conditions[i], colors[i], location=location, n_locations=n_locations)
-            if kosher:
-                neuron_array.cell_selection_kosher(alpha)
-            else:
-                neuron_array.cell_selection(alpha)
+        rd = RD(file, conditions)
 
-            print(neuron_array.condition, neuron_array.visual_latency.mean(), neuron_array.n_cell)
-            print(neuron_array.good_cells)
-            neuron_array_list.append(neuron_array)
+        rd.cell_select(alpha)
+
+        for na in rd.NA_list:
+            print(na.condition, na.visual_latency.mean(), na.n_cell)
+            print(na.good_cells)
 
         if 'savemat' in args:
             mydict = {}
@@ -47,14 +43,15 @@ def main(args, files, conditions):
                 normal = 'sub'
 
             if 'savemat' in args:
-                mydict['firingRate'] = NA.plot_firing_rate(neuron_array_list, figpath, file, normal=normal, savemat=True)
+                mydict['firingRate'] = rd.plot_firing_rate(figpath, file, normal=normal,
+                                                           savemat=True)
             else:
-                NA.plot_firing_rate(neuron_array_list, figpath, file, normal=normal)
+                rd.plot_firing_rate(figpath, file, normal=normal)
 
         if 'tuning curve' in args:
 
             tempdict = {}
-            for na in neuron_array_list:
+            for na in rd.NA_list:
                 tempdict[na.condition] = na.plot_tuning_curves(figpath, file)
 
             if 'savemat' in args:
@@ -73,7 +70,7 @@ def main(args, files, conditions):
             from sklearn.metrics import accuracy_score, make_scorer
             scorer = make_scorer(accuracy_score, greater_is_better=True)
 
-            NA.equalize_trials(neuron_array_list)
+            rd.equalize_trials()
             name += '_eq'
 
             # smoothin param
@@ -81,22 +78,22 @@ def main(args, files, conditions):
 
             if 'smooth' in args:
                 name += '_tau%i' % int(tau * 1000)
-                for na in neuron_array_list:
-                    na.smooth(tau)
+                smooth = tau
+            else: smooth = False
 
             if 'jumble' in args:
                 name += '_JB'
-                for na in neuron_array_list:
+                for na in rd.NA_list:
                     na.jumble()
 
-            for na in neuron_array_list:
-                na.decoding(learner, scorer, n_folds='max')
+            for na in rd.NA_list:
+                na.decoding(learner, scorer, smooth)
 
-            NA.plot_decoding_time_course(neuron_array_list, figpath, file, name)
+            rd.plot_decoding_time_course(figpath, file, name)
 
             if 'savemat' in args:
                 tempdict = {}
-                for na in neuron_array_list:
+                for na in rd.NA_list:
                     tempdict[na.condition] = {'accuracy': na.decoding_tc, 'std_err': na.decoding_tc_err}
                 tempdict['info'] = {'learner': name, 'smoothing time constant': tau}
                 mydict['decoding'] = tempdict
@@ -108,7 +105,7 @@ def main(args, files, conditions):
                 mydict = {**olddict, **mydict}
 
             tempdict = {}
-            for na in neuron_array_list:
+            for na in rd.NA_list:
                 tempdict[na.condition] = {'time': na.edges.ravel(), 'visual_latency': na.visual_latency, 'good_cells': na.good_cells}
 
             mydict['info'] = tempdict
@@ -120,7 +117,7 @@ def main(args, files, conditions):
             text_file = open("%soutput_alpha%i.txt" % (figpath, int(100*alpha)), "a")
             text_file.write('%s \n' % path)
             text_file.write('file, condition, visual_latency, n_good_cells, n_trials \n')
-            for na in neuron_array_list:
+            for na in rd.NA_list:
                 text_file.write('%s, %s, %f, %i, %i \n' % (file, na.condition, na.visual_latency.mean(), na.n_cell, na.n_trial))
             text_file.close()
 
@@ -131,11 +128,9 @@ if __name__ == '__main__':
     #
     conditions += ['presac', 'postsac', 'postsac_change']
 
-    colors = ['blue', 'black', 'red']
-
     # Choose the file to analyse
     files = []
-    files += ['p120']
+    files += ['p121']
 
     # Cell selection
     kosher = False
@@ -161,7 +156,6 @@ if __name__ == '__main__':
     args += ['firing rate', 'raw']
     args += ['tuning curve']
     args += ['savemat']
-
 
     main(args, files, conditions)
 
