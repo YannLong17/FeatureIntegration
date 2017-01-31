@@ -35,7 +35,7 @@ class NeuronArray:
 
         self.n_trial, self.n_cell, _ = self.X.shape
 
-        self.p_val = ks_test(self.X, self.X_no)
+        self.p_val = np.ones((self.n_cell, self.n_time))
         self.good_cells = np.arange(self.n_cell)
         self.visual_latency = np.ones((self.n_cell,)) * 0.125
 
@@ -51,15 +51,12 @@ class NeuronArray:
         self.null_ort = np.zeros((self.n_cell,), 'int16')
 
     def ks_test(self):
-        P_val = np.ones((self.n_cell, self.n_time))
-
         for t in range(self.n_time):
             for i in range(self.n_cell):
                 pref_or = find_peak(self.X[:, i, t], self.Y)
                 D, pval = ks_2samp(self.X_no[:, i, t], self.X[self.Y == pref_or, i, t])
-                P_val[i, t] = pval
+                self.p_val[i, t] = pval
 
-        return P_val
 
     def trial_selection(self, bounds):
         mini, maxi = bounds

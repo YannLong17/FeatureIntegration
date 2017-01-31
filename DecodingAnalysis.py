@@ -24,8 +24,6 @@ def main(args, files, conditions):
 
         rd = RD(file, conditions)
 
-        rd.cell_select(alpha)
-
         if 'early trial' in args:
             bounds = [-np.inf, -0.1]
             signature += 'early'
@@ -42,6 +40,10 @@ def main(args, files, conditions):
 
         for na in rd.NA_list:
             na.trial_selection(bounds)
+
+        rd.cell_select(alpha)
+
+        for na in rd.NA_list:
             print(signature, na.condition, ' Visual Latency: ',  round(na.visual_latency.mean(),3), ' n cell: ',
             na.n_cell, 'n trial: ', na.n_trial)
 
@@ -101,7 +103,7 @@ def main(args, files, conditions):
             name += signature
 
             for na in rd.NA_list:
-                na.decoding(learner, scorer, smooth)
+                na.decoding(learner, scorer, smooth, n_folds='max')
 
             rd.plot_decoding_time_course(figpath, name)
 
@@ -174,7 +176,7 @@ if __name__ == '__main__':
     # args += ['tuning curve']
     args += ['savemat']
     # args += ['orientation bias']
-    args += ['mid trial']
+    args += ['late trial']
 
     main(args, files, conditions)
 

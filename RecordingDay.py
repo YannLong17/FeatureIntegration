@@ -22,7 +22,6 @@ class RecordingDay:
         self.day = day
         self.figpath = 'results/Decoding Analysis/%s/' % self.day
 
-
         # Time axis
         self.edges = np.ravel(data['edges'])
         self.n_time = self.edges.shape[0]
@@ -63,6 +62,7 @@ class RecordingDay:
 
     def cell_select(self, alpha):
         for na in self.NA_list:
+            na.ks_test()
             na.cell_selection(alpha)
 
     ### Plotting Fun ###
