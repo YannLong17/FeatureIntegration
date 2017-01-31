@@ -19,6 +19,10 @@ class RecordingDay:
         path = path[0]
         data = load(path)
 
+        self.day = day
+        self.figpath = 'results/Decoding Analysis/%s/' % self.day
+
+
         # Time axis
         self.edges = np.ravel(data['edges'])
         self.n_time = self.edges.shape[0]
@@ -61,10 +65,8 @@ class RecordingDay:
         for na in self.NA_list:
             na.cell_selection(alpha)
 
-
-
     ### Plotting Fun ###
-    def plot_decoding_time_course(self, figpath, file, name):
+    def plot_decoding_time_course(self, name):
         # plot the result
         fig, axs = plt.subplots(1, 1, sharex=True, sharey=True)
 
@@ -79,12 +81,12 @@ class RecordingDay:
         axs.set_xlabel('Time')
         axs.set_xticks(self.edges[np.arange(na.n_time, step=4)])
         axs.legend(loc='lower left')
-        fig.suptitle('%s Decoding time course %s' % (file, name))
+        fig.suptitle('%s Decoding time course %s' % (self.day, name))
         plt.grid(True)
 
-        if not os.path.exists('%sdecoding/' % figpath):
-            os.makedirs('%sdecoding/' % figpath)
-        filepath = '%sdecoding/%s_%s' % (figpath, file, name)
+        if not os.path.exists('%sdecoding/' % self.figpath):
+            os.makedirs('%sdecoding/' % self.figpath)
+        filepath = '%sdecoding/%s_%s' % (self.figpath, self.day, name)
         i = 0
         while glob.glob('%s%i.*' % (filepath, i)):
             i += 1
@@ -93,7 +95,7 @@ class RecordingDay:
         plt.savefig(filepath)
         plt.close(fig)
 
-    def plot_firing_rate(self, figpath, file, normal, null_orientation=True, savemat=False):
+    def plot_firing_rate(self, normal, null_orientation=True, savemat=False):
         """ find the average and std err firing rate for prefered and null orientation for all times"""
 
         if null_orientation:
@@ -162,10 +164,10 @@ class RecordingDay:
                     # else:
                     # axs[1].set_ylabel('Firing Rate')
 
-        if not os.path.exists('%sfiring_rate/' % figpath):
-            os.makedirs('%sfiring_rate/' % figpath)
+        if not os.path.exists('%sfiring_rate/' % self.figpath):
+            os.makedirs('%sfiring_rate/' % self.figpath)
 
-        filepath = '%sfiring_rate/%s%s_pop_FR' % (figpath, file, normal)
+        filepath = '%sfiring_rate/%s%s_pop_FR' % (self.figpath, self.day, normal)
         i = 0
         while glob.glob('%s%i.*' % (filepath, i)):
             i += 1
@@ -177,6 +179,27 @@ class RecordingDay:
         if savemat:
             return dict
 
+    def plot_orientation_bias(self):
+
+        fig, axs = plt.subplots(1, 1, sharey=True)
+
+        for k, na in enumerate(self.NA_list):
+            ob = na.get_orientation_bias()
+            print(ob.shape)
+
+            axs.plot(self.edges, ob.mean(axis=0), label=na.condition, c=color_list[k])
+            axs.fill_between(na.edges, ob.mean(axis=0) - ob.std(axis=0), ob.mean(axis=0) + ob.std(axis=0),
+                                alpha=0.25, facecolor=color_list[k])
+
+        axs.set_ylim((0, 1))
+        axs.set_title('Orientation Bias')
+        axs.grid(True)
+        axs.set_xlabel('Time')
+        axs.set_xticks(na.edges[np.arange(na.n_time, step=4)])
+        axs.legend(loc='upper left')
+
+        plt.show()
+        plt.close(fig)
 
 
 

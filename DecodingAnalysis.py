@@ -17,9 +17,6 @@ from HelperFun import load
 
 def main(args, files, conditions):
     for file in files:
-        path = glob.glob('data/%s*' % file)
-        print(path[0])
-        path = path[0]                                    # path to the data file
         figpath = 'results/Decoding Analysis/%s/' % file  # where you want to save the figures
 
         alpha = 0.01
@@ -43,10 +40,9 @@ def main(args, files, conditions):
                 normal = 'sub'
 
             if 'savemat' in args:
-                mydict['firingRate'] = rd.plot_firing_rate(figpath, file, normal=normal,
-                                                           savemat=True)
+                mydict['firingRate'] = rd.plot_firing_rate(normal=normal, savemat=True)
             else:
-                rd.plot_firing_rate(figpath, file, normal=normal)
+                rd.plot_firing_rate(normal=normal)
 
         if 'tuning curve' in args:
 
@@ -89,7 +85,7 @@ def main(args, files, conditions):
             for na in rd.NA_list:
                 na.decoding(learner, scorer, smooth)
 
-            rd.plot_decoding_time_course(figpath, file, name)
+            rd.plot_decoding_time_course(figpath, name)
 
             if 'savemat' in args:
                 tempdict = {}
@@ -97,6 +93,9 @@ def main(args, files, conditions):
                     tempdict[na.condition] = {'accuracy': na.decoding_tc, 'std_err': na.decoding_tc_err}
                 tempdict['info'] = {'learner': name, 'smoothing time constant': tau}
                 mydict['decoding'] = tempdict
+
+        if 'orientation bias' in args:
+            rd.plot_orientation_bias()
 
         if 'savemat' in args:
             if os.path.isfile('%s%s_data.mat' % (figpath, file)):
@@ -114,8 +113,8 @@ def main(args, files, conditions):
             sio.savemat('%s%s_data.mat' % (figpath, file), mdict=mydict)
 
         if 'write' in args:
-            text_file = open("%soutput_alpha%i.txt" % (figpath, int(100*alpha)), "a")
-            text_file.write('%s \n' % path)
+            text_file = open("%soutput_alpha%i.txt" % (rd.day, int(100*alpha)), "a")
+            text_file.write('%s \n' % rd.figpath)
             text_file.write('file, condition, visual_latency, n_good_cells, n_trials \n')
             for na in rd.NA_list:
                 text_file.write('%s, %s, %f, %i, %i \n' % (file, na.condition, na.visual_latency.mean(), na.n_cell, na.n_trial))
@@ -152,10 +151,11 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    args += ['decoding', 'smooth']
-    args += ['firing rate', 'raw']
-    args += ['tuning curve']
-    args += ['savemat']
+    # args += ['decoding', 'smooth']
+    # args += ['firing rate', 'raw']
+    # args += ['tuning curve']
+    # args += ['savemat']
+    args += ['orientation bias']
 
     main(args, files, conditions)
 

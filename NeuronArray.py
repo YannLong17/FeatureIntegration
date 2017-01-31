@@ -206,7 +206,7 @@ class NeuronArray:
         """
         theta = np.zeros(self.Y.shape)
         for i, a in enumerate(self.Y):
-            theta[i,] = np.radians(self.angles[int(a),]) % np.pi
+            theta[i, ] = np.radians(self.angles[int(a),]) % np.pi
         return theta
 
     def get_pref_fr(self, normal=False):
@@ -220,6 +220,14 @@ class NeuronArray:
             null_fr[:, i] = np.nanmean(fr[np.where(self.Y == self.null_ort[i])[0], i, :], axis=0)
 
         return pref_fr, null_fr
+
+    def get_orientation_bias(self):
+
+        i = np.complex(0, 1)
+
+        ob = np.sum(self.X * np.exp(i * 2 * self.get_theta()[:, np.newaxis, np.newaxis]), axis=0) / np.sum(self.X, axis=0)
+
+        return np.abs(ob)
 
     def plot_tuning_curves(self, figpath, file):
         """
