@@ -43,6 +43,12 @@ class RecordingDay:
         if 'presac_only' in data.keys():
             self.NA_remap = NA(data, 'presac_only')
 
+    def trial_select(self, bounds):
+        for na in self.NA_list:
+            if na.condition is not 'postsac':
+                na.trial_selection(bounds)
+
+
     def equalize_trials(self):
         # find the minimum number of trials
         min_trials = np.inf

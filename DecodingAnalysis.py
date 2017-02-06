@@ -25,21 +25,21 @@ def main(args, files, conditions):
         rd = RD(file, conditions)
 
         if 'early trial' in args:
-            bounds = [-np.inf, -0.1]
-            signature += 'early'
+            bounds = [-0.15, -0.075]
+            signature += 'early150_75'
         elif 'mid trial' in args:
-            bounds = [-0.1, -0.02]
-            signature += 'mid'
-
+            bounds = [-0.1, -0.05]
+            signature += 'mid100_50'
+        elif 'good trial' in args:
+            bounds = [-0.075, -0.025]
+            signature += 'sac75_25'
         elif 'late trial' in args:
-            bounds = [-0.02, np.inf]
+            bounds = [-0.01, 0.05]
             signature += 'late'
-
         else:
             bounds = [-np.inf, np.inf]
 
-        for na in rd.NA_list:
-            na.trial_selection(bounds)
+        rd.trial_select(bounds)
 
         rd.cell_select(alpha)
 
@@ -74,11 +74,17 @@ def main(args, files, conditions):
         if 'decoding' in args:
             # choose the learner
             # Uncomment the learner you want to use
-            learner = ExtraTreesClassifier(n_estimators=5000, bootstrap=True, class_weight='balanced_subsample')
             # learner = SVC(kernel='linear', C=0.00002, class_weight='balanced', decision_function_shape='ovr')
-            # learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
-            # learner = PoissonNB()
-            name = 'ET'  # Will appear in title and file name
+
+            if 'quick' in args:
+                learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
+                name = 'LR'
+                n_fold = 5
+
+            else:
+                learner = ExtraTreesClassifier(n_estimators=5000, bootstrap=True, class_weight='balanced_subsample')
+                name = 'ET'
+                n_fold = 'max'
 
             # choose the scorer
             from sklearn.metrics import accuracy_score, make_scorer
@@ -93,6 +99,7 @@ def main(args, files, conditions):
             if 'smooth' in args:
                 name += '_tau%i' % int(tau * 1000)
                 smooth = tau
+
             else: smooth = False
 
             if 'jumble' in args:
@@ -103,9 +110,9 @@ def main(args, files, conditions):
             name += signature
 
             for na in rd.NA_list:
-                na.decoding(learner, scorer, smooth, n_folds='max')
+                na.decoding(learner, scorer, smooth, n_folds=n_fold)
 
-            rd.plot_decoding_time_course(figpath, name)
+            rd.plot_decoding_time_course(name)
 
             if 'savemat' in args:
                 tempdict = {}
@@ -145,11 +152,11 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['presac', 'postsac', 'postsac_change']
+    conditions += ['presac', 'postsac']
 
     # Choose the file to analyse
     files = []
-    files += ['p127']
+    files += ['p128']
 
     # Cell selection
     kosher = False
@@ -176,7 +183,8 @@ if __name__ == '__main__':
     # args += ['tuning curve']
     args += ['savemat']
     # args += ['orientation bias']
-    args += ['late trial']
+    args += ['good trial']
+    # args += ['quick']
 
     main(args, files, conditions)
 
