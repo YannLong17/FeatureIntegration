@@ -48,7 +48,6 @@ class RecordingDay:
             if na.condition is not 'postsac':
                 na.trial_selection(bounds)
 
-
     def equalize_trials(self):
         # find the minimum number of trials
         min_trials = np.inf
@@ -58,18 +57,24 @@ class RecordingDay:
 
         # equalize the trials for each condition
         for na in self.NA_list:
-            if na.n_trial > min_trials+4:
-                # StratifiedShuffleSplit preserve the percentage of sample from each class (orientation)
-                sss = StratifiedShuffleSplit(na.Y, n_iter=1, train_size=min_trials, test_size=None)
-                for train_idx, test_idx in sss:
-                    na.X = na.X[train_idx, ...]
-                    na.Y = na.Y[train_idx]
-                na.n_trial = min_trials
+            if na.n_trial > min_trials:
+                na.select_trials(min_trials)
+
+        # # StratifiedShuffleSplit preserve the percentage of sample from each class (orientation)
+        # sss = StratifiedShuffleSplit(na.Y, n_iter=1, train_size=min_trials, test_size=None)
+        # for train_idx, test_idx in sss:
+        #     na.X = na.X[train_idx, ...]
+        #     na.Y = na.Y[train_idx]
+        # na.n_trial = min_trials
 
     def cell_select(self, alpha):
         for na in self.NA_list:
             na.ks_test()
             na.cell_selection(alpha)
+
+    def set_tau(self, tau):
+        for na in self.NA_list:
+            na.set_tau(tau)
 
     ### Plotting Fun ###
     def plot_decoding_time_course(self, name):
@@ -114,12 +119,17 @@ class RecordingDay:
         if savemat:
             dict = {}
 
+        y_min = np.inf
+        y_max = -np.inf
+
         for k, na in enumerate(self.NA_list):
             na.set_baseline()
 
             na.set_pref_ort()
 
-            pref_fr, null_fr = na.get_pref_fr(normal)
+            na.set_method(normal)
+
+            pref_fr, null_fr = na.get_pref_fr()
 
             mean_pref_fr = pref_fr.mean(axis=1)
             std_pref_fr = pref_fr.std(axis=1, ddof=1) / np.sqrt(na.n_cell)
@@ -130,8 +140,8 @@ class RecordingDay:
                 dict[na.condition] = {'Prefered_Orientation': pref_fr, 'Null_Orientation': null_fr}
 
             # plot the results
-            y_max = np.max(mean_pref_fr + std_pref_fr)
-            y_min = np.min(mean_pref_fr - std_pref_fr)
+            y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
+            y_min = min(np.min(mean_pref_fr - std_pref_fr), y_min)
 
             axs[0].plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k])
             axs[0].fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.25,

@@ -98,7 +98,8 @@ def main(args, files, conditions):
 
             if 'smooth' in args:
                 name += '_tau%i' % int(tau * 1000)
-                smooth = tau
+                smooth = True
+                rd.set_tau(tau)
 
             else: smooth = False
 
@@ -132,7 +133,7 @@ def main(args, files, conditions):
 
             tempdict = {}
             for na in rd.NA_list:
-                tempdict[na.condition] = {'time': na.edges.ravel(), 'visual_latency': na.visual_latency, 'good_cells': na.good_cells}
+                tempdict[na.condition] = {'time': na.edges.ravel(), 'visual_latency': na.visual_latency, 'good_cells': na.get_good_cells()}
 
             mydict['info'] = tempdict
             # print(mydict)
@@ -179,12 +180,12 @@ if __name__ == '__main__':
 
     args = []
     args += ['decoding']
-    args += ['firing rate', 'raw']
+    args += ['firing rate', 'sub']
     # args += ['tuning curve']
     args += ['savemat']
     # args += ['orientation bias']
     args += ['good trial']
-    # args += ['quick']
+    args += ['quick']
 
     main(args, files, conditions)
 
