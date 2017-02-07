@@ -43,6 +43,54 @@ class RecordingDay:
         if 'presac_only' in data.keys():
             self.NA_remap = NA(data, 'presac_only')
 
+        # Analysed data File
+        self.save = False
+        self.unused_data = None
+
+
+    def open_mat(self):
+        if os.path.isfile('%s%s_data.mat' % (self.figpath, self.day)):
+            print('old exists ')
+            dict = loadmat('%s%s_data.mat' % (self.figpath, self.day))
+        else:
+            dict = {}
+
+        return dict
+
+    # def check_condition(self, condition):
+    #     if condition not in self.data_dict.keys():
+    #         return False
+    #     else:
+    #         return True
+
+    def set_save(self, arg=None):
+        if arg in ['load', 'over']:
+            self.save = arg
+        else:
+            self.save = True
+
+        dict = self.open_mat()
+
+        for na in self.NA_list:
+
+            dic = dict.pop(na.condition, {})
+            # print(type(dic[0][0]))
+            # print(dic[0][0].shape)
+            # print(dic[0][0])
+            na.set_data_dict(dic)
+
+        self.unused_data = dict
+
+    def save_mat(self):
+        mydict = {}
+
+        for na in self.NA_list:
+            mydict[na.condition] = na.data_dict
+
+        mydict = {**self.unused_data, **mydict}
+
+        sio.savemat('%s%s_data.mat' % (self.figpath, self.day), mdict=mydict)
+
     def trial_select(self, bounds):
         for na in self.NA_list:
             if na.condition is not 'postsac':
@@ -76,21 +124,39 @@ class RecordingDay:
         for na in self.NA_list:
             na.set_tau(tau)
 
+    def decode(self, learner, scorer, smooth, name, n_folds=5):
+        for na in self.NA_list:
+            if na.exist_data('decode%s' % name):
+                if self.save is 'over':
+                    na.decoding(learner, scorer, smooth, name, n_folds=5)
+            else:
+                na.decoding(learner, scorer, smooth, name, n_folds=5)
+
+    def firing_rate(self, normal):
+        for k, na in enumerate(self.NA_list):
+            if na.exist_data('fr%s' % normal):
+                if self.save is 'over':
+                    na.firing_rate_data(normal)
+            else:
+                na.firing_rate_data(normal)
+
     ### Plotting Fun ###
     def plot_decoding_time_course(self, name):
         # plot the result
         fig, axs = plt.subplots(1, 1, sharex=True, sharey=True)
 
         for k, na in enumerate(self.NA_list):
-            l1, = axs.plot(na.edges, na.decoding_tc, label=na.condition, c=color_list[k], linewidth=.5)
-            axs.fill_between(na.edges, na.decoding_tc + na.decoding_tc_err,
-                                 na.decoding_tc - na.decoding_tc_err, facecolor=color_list[k],
-                                 alpha=0.25)
+            decoding_tc = na.data_dict['decode%s' % name]['decoding_tc']
+            decoding_tc_err = na.data_dict['decode%s' % name]['decoding_tc_err']
+
+            l1, = axs.plot(na.edges, decoding_tc, label=na.condition, c=color_list[k], linewidth=.5)
+            axs.fill_between(na.edges, decoding_tc + decoding_tc_err, decoding_tc - decoding_tc_err,
+                             facecolor=color_list[k], alpha=0.25)
 
         axs.axhline(y=1. / self.n_ort)
         axs.set_ylabel('Accuracy')
         axs.set_xlabel('Time')
-        axs.set_xticks(self.edges[np.arange(na.n_time, step=4)])
+        axs.set_xticks(self.edges[np.arange(self.n_time, step=4)])
         axs.legend(loc='lower left')
         fig.suptitle('%s Decoding time course %s' % (self.day, name))
         plt.grid(True)
@@ -116,28 +182,26 @@ class RecordingDay:
 
         fig, axs = plt.subplots(n_plot, 1, sharex=True)
 
-        if savemat:
-            dict = {}
-
         y_min = np.inf
         y_max = -np.inf
 
         for k, na in enumerate(self.NA_list):
-            na.set_baseline()
-
-            na.set_pref_ort()
-
-            na.set_method(normal)
-
-            pref_fr, null_fr = na.get_pref_fr()
+        #     na.set_baseline()
+        #
+        #     na.set_pref_ort()
+        #
+        #     na.set_method(normal)
+        #
+            pref_fr = na.data_dict['fr%s' % normal]['pref_fr']
+            null_fr = na.data_dict['fr%s' % normal]['null_fr']
 
             mean_pref_fr = pref_fr.mean(axis=1)
             std_pref_fr = pref_fr.std(axis=1, ddof=1) / np.sqrt(na.n_cell)
             mean_null_fr = null_fr.mean(axis=1)
             std_null_fr = null_fr.std(axis=1, ddof=1) / np.sqrt(na.n_cell)
-
-            if savemat:
-                dict[na.condition] = {'Prefered_Orientation': pref_fr, 'Null_Orientation': null_fr}
+        #
+        #     if savemat:
+        #         dict[na.condition] = {'Prefered_Orientation': pref_fr, 'Null_Orientation': null_fr}
 
             # plot the results
             y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
@@ -192,8 +256,6 @@ class RecordingDay:
         plt.savefig(filepath)
         plt.close(fig)
 
-        if savemat:
-            return dict
 
     def plot_orientation_bias(self):
 

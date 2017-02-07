@@ -44,11 +44,16 @@ def main(args, files, conditions):
         rd.cell_select(alpha)
 
         for na in rd.NA_list:
-            print(signature, na.condition, ' Visual Latency: ',  round(na.visual_latency.mean(),3), ' n cell: ',
+            print(signature, na.condition, ' Visual Latency: ',  round(na.visual_latency.mean(), 3), ' n cell: ',
             na.n_cell, 'n trial: ', na.n_trial)
 
         if 'savemat' in args:
-            mydict = {}
+            if 'load' in args:
+                rd.set_save('load')
+            elif 'overwrite' in args:
+                rd.set_save('overwrite')
+            else:
+                rd.set_save()
 
         if 'firing rate' in args:
             normal = 'raw'
@@ -57,10 +62,10 @@ def main(args, files, conditions):
             elif 'sub' in args:
                 normal = 'sub'
 
-            if 'savemat' in args:
-                mydict['firingRate'] = rd.plot_firing_rate(normal, signature, savemat=True)
-            else:
-                rd.plot_firing_rate(normal=normal)
+            rd.firing_rate(normal)
+
+            rd.plot_firing_rate(normal, signature)
+
 
         if 'tuning curve' in args:
 
@@ -108,37 +113,22 @@ def main(args, files, conditions):
                 for na in rd.NA_list:
                     na.jumble()
 
-            name += signature
-
-            for na in rd.NA_list:
-                na.decoding(learner, scorer, smooth, n_folds=n_fold)
+            rd.decode(learner, scorer, smooth, name, n_folds=n_fold)
 
             rd.plot_decoding_time_course(name)
 
-            if 'savemat' in args:
-                tempdict = {}
-                for na in rd.NA_list:
-                    tempdict[na.condition] = {'accuracy': na.decoding_tc, 'std_err': na.decoding_tc_err}
-                tempdict['info'] = {'learner': name, 'smoothing time constant': tau}
-                mydict['decoding'] = tempdict
+            # if 'savemat' in args:
+            #     tempdict = {}
+            #     for na in rd.NA_list:
+            #         tempdict[na.condition] = {'accuracy': na.decoding_tc, 'std_err': na.decoding_tc_err}
+            #     tempdict['info'] = {'learner': name, 'smoothing time constant': tau}
+            #     mydict['decoding'] = tempdict
 
         if 'orientation bias' in args:
             rd.plot_orientation_bias()
 
         if 'savemat' in args:
-            if os.path.isfile('%s%s_data.mat' % (figpath, file)):
-                print('old exists ')
-                olddict = sio.loadmat('%s%s_data.mat' % (figpath, file))
-                mydict = {**olddict, **mydict}
-
-            tempdict = {}
-            for na in rd.NA_list:
-                tempdict[na.condition] = {'time': na.edges.ravel(), 'visual_latency': na.visual_latency, 'good_cells': na.get_good_cells()}
-
-            mydict['info'] = tempdict
-            # print(mydict)
-
-            sio.savemat('%s%s_data.mat' % (figpath, file), mdict=mydict)
+            rd.save_mat()
 
         if 'write' in args:
             text_file = open("%soutput_alpha%i.txt" % (rd.day, int(100*alpha)), "a")
@@ -175,14 +165,16 @@ if __name__ == '__main__':
         # 'tuning curve' -- plot the tuning curve for each good cell at visual latency
 
         # 'savemat': saves the graph data to a matlab file
+        #         'Overwrite' - replace the data on file for given conditions
+        #         'load' - load the data on file if exists
 
         # 'write': output basic information to a text file
 
     args = []
-    args += ['decoding']
-    args += ['firing rate', 'sub']
+    # args += ['decoding']
+    args += ['firing rate', 'raw']
     # args += ['tuning curve']
-    args += ['savemat']
+    args += ['savemat', 'load']
     # args += ['orientation bias']
     args += ['good trial']
     args += ['quick']

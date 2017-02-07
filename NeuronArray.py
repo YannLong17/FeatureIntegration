@@ -48,9 +48,6 @@ class NeuronArray:
         self.remap_cells_mask = np.zeros(self.n_cell)
         self.remap_latency = np.zeros(self.n_cell)
 
-        self.decoding_tc = np.zeros((self.n_time,))
-        self.decoding_tc_err = np.zeros((self.n_time,))
-
         self.baseline = np.zeros((self.n_cell,))
 
         self.pref_ort = np.zeros((self.n_cell,), 'int16')
@@ -61,6 +58,9 @@ class NeuronArray:
 
         # Normalization Method
         self.method = 'raw'
+
+        # Analysed data
+        self.data_dict = {}
 
     def ks_test(self):
         for t in range(self.n_time):
@@ -167,6 +167,16 @@ class NeuronArray:
 
         return fr
 
+    def set_data_dict(self, dict):
+        self.data_dict = dict
+
+    def exist_data(self, task):
+        if task not in self.data_dict.keys():
+            print(type(self.data_dict))
+            return False
+        else:
+            return True
+
     def set_tau(self, tau):
         self.tau = tau
 
@@ -190,6 +200,7 @@ class NeuronArray:
             self.null_ort[i] = find_null(np.unique(theta), params[0])
 
     def set_boothstrap_trial(self, n_trial):
+        return False
 
     def get_fr(self, smooth=False, normal=False):
         if smooth:
@@ -222,7 +233,18 @@ class NeuronArray:
     def get_good_cells(self):
         return np.nonzero(self.cell_mask)
 
-    def decoding(self, learner, scorer, smooth, n_folds=5):
+    def firing_rate_data(self, normal):
+        self.set_baseline()
+
+        self.set_pref_ort()
+
+        self.set_method(normal)
+
+        pref_fr, null_fr = self.get_pref_fr()
+
+        self.data_dict['fr%s' % normal] = {'pref_fr': pref_fr, 'null_fr': null_fr}
+
+    def decoding(self, learner, scorer, smooth, name, n_folds=5):
         """
         plots the time point by time point decoding accuracy time course for every condition in conditions
         :param good_cells: list of index corresponding to good cells.
@@ -252,11 +274,19 @@ class NeuronArray:
         k_folds = StratifiedKFold(ort, n_folds, shuffle=True)
 
         # find the time point decoding accuracy
+
+        decoding_tc = np.zeros((self.n_time,))
+        decoding_tc_err = np.zeros((self.n_time,))
+
         for t in range(self.n_time):
             cv_accuracy = cross_val_score(learner, fr[:, :, t], ort, scoring=scorer, cv=k_folds, n_jobs=-1)
-            self.decoding_tc[t] = cv_accuracy.mean()
-            self.decoding_tc_err[t] = cv_accuracy.std(ddof=1) / np.sqrt(n_folds)
+            decoding_tc[t] = cv_accuracy.mean()
+            decoding_tc_err[t] = cv_accuracy.std(ddof=1) / np.sqrt(n_folds)
             print('on my way, time point %i of %i' % (t + 1, self.n_time))
+
+        self.data_dict['decode%s' % name] = {'decoding_tc':decoding_tc, 'decoding_tc_err':decoding_tc_err}
+
+
 
     def decoding_boothstrap_estimate(self, learner, scorer, smooth, n_folds=5, n_est=10):
         """
