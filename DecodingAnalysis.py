@@ -24,6 +24,8 @@ def main(args, files, conditions):
 
         rd = RD(file, conditions)
 
+
+
         if 'early trial' in args:
             bounds = [-0.15, -0.075]
             signature += 'early150_75'
@@ -73,8 +75,8 @@ def main(args, files, conditions):
             for na in rd.NA_list:
                 tempdict[na.condition] = na.plot_tuning_curves(figpath, file)
 
-            if 'savemat' in args:
-                mydict['tuningParam'] = tempdict
+            # if 'savemat' in args:
+            #     mydict['tuningParam'] = tempdict
 
         if 'decoding' in args:
             # choose the learner
@@ -95,8 +97,9 @@ def main(args, files, conditions):
             from sklearn.metrics import accuracy_score, make_scorer
             scorer = make_scorer(accuracy_score, greater_is_better=True)
 
-            rd.equalize_trials()
-            name += '_eq'
+            if 'equal' in args:
+                rd.equalize_trials()
+                name += '_eq'
 
             # smoothin param
             tau = 0.1
@@ -113,7 +116,13 @@ def main(args, files, conditions):
                 for na in rd.NA_list:
                     na.jumble()
 
-            rd.decode(learner, scorer, smooth, name, n_folds=n_fold)
+            # Boothstrapping sample number
+            if 'boothstrap' in args:
+                booth = 250
+                name += 'booth%i' % booth
+            else: booth = 0
+
+            rd.decode(learner, scorer, smooth, name, n_folds=n_fold, booth=booth)
 
             rd.plot_decoding_time_course(name)
 
@@ -156,6 +165,8 @@ if __name__ == '__main__':
         # 'decoding' -- plot the decoding time course for conditions
             # 'smooth': causal filter on firing rate
             # 'jumble': remove the correlation stucture
+            # 'equal': equalize the number of trials between conditions
+            # 'boothstrap': boothstrap estimate for post condition
 
         # 'firing rate' -- plot the firing rate time course for conditions
             # 'raw': no baseline correction
@@ -171,13 +182,13 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    # args += ['decoding']
-    args += ['firing rate', 'raw']
+    args += ['decoding', 'boothstrap']
+    args += ['firing rate', 'sub']
     # args += ['tuning curve']
     args += ['savemat', 'load']
     # args += ['orientation bias']
     args += ['good trial']
-    args += ['quick']
+    # args += ['quick']
 
     main(args, files, conditions)
 

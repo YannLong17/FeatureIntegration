@@ -38,8 +38,10 @@ class NeuronArray:
                                     noProbe=True)
 
         self.n_trial, self.n_cell, _ = self.X.shape
+        self.n_booth_trial = self.n_trial
 
         self.trial_mask = np.ones(self.n_trial, 'bool')
+        self.booth_mask = np.ones(self.n_trial, 'bool')
 
         self.p_val = np.ones((self.n_cell, self.n_time))
         self.cell_mask = np.ones(self.n_cell, 'bool')
@@ -85,11 +87,12 @@ class NeuronArray:
                         self.visual_latency[i,] = self.edges[t]
         self.n_cell = self.cell_mask.sum()
 
-    def select_trials(self, n_trial):
-        trials = np.nonzero(self.trial_mask)[0]
-        trials = np.random.choice(trials, size=n_trial)
-        self.trial_mask[:] = False
-        self.trial_mask[trials] = True
+    # def select_trials(self, n_trial):
+    #     trials = np.nonzero(self.trial_mask)[0]
+    #     trials = np.random.choice(trials, size=n_trial)
+    #     self.trial_mask[:] = False
+    #     self.trial_mask[trials] = True
+    #     self.n_trial = self.trial_mask.sum()
 
     # def cell_selection_kosher(self, alpha):
     #
@@ -172,10 +175,15 @@ class NeuronArray:
 
     def exist_data(self, task):
         if task not in self.data_dict.keys():
-            print(type(self.data_dict))
+            # print(type(self.data_dict))
             return False
         else:
             return True
+
+    def set_cell(self, cells):
+        self.cell_mask[:] = False
+        self.cell_mask[cells] = True
+        self.n_cell = self.cell_mask.sum()
 
     def set_tau(self, tau):
         self.tau = tau
@@ -188,7 +196,6 @@ class NeuronArray:
         # print(self.X[self.trial_mask, ...][..., baseline_mask].shape)
         self.baseline = self.X[self.trial_mask, ...][..., baseline_mask].mean(axis=(0, 2))
 
-
     def set_pref_ort(self):
         # find the prefered orientation for each cell at visual latency
         theta = self.get_theta()[self.trial_mask]
@@ -199,10 +206,13 @@ class NeuronArray:
             self.pref_ort[i] = find_closest(np.unique(theta), params[0])
             self.null_ort[i] = find_null(np.unique(theta), params[0])
 
-    def set_boothstrap_trial(self, n_trial):
-        return False
+    def set_booth_trial(self):
+        trials = np.nonzero(self.trial_mask)[0]
+        trials = np.random.choice(trials, size=self.n_booth_trial)
+        self.booth_mask[:] = False
+        self.booth_mask[trials] = True
 
-    def get_fr(self, smooth=False, normal=False):
+    def get_fr(self, booth=False, smooth=False, normal=False):
         if smooth:
             fr = self.smooth()
 
@@ -211,7 +221,10 @@ class NeuronArray:
 
         else: fr = self.X
 
-        fr = fr[self.trial_mask, ...][:, self.cell_mask, :]
+        if booth:
+            fr = fr[self.booth_mask, ...][:, self.cell_mask, :]
+        else:
+            fr = fr[self.trial_mask, ...][:, self.cell_mask, :]
         return fr
 
     def get_pref_fr(self):
@@ -261,7 +274,7 @@ class NeuronArray:
                 decoding time course error, numpy array (n_conditions, n_times)
         """
 
-        fr = self.get_fr(smooth)
+        fr = self.get_fr(smooth=smooth)
 
         ort = self.get_ort()
 
@@ -286,9 +299,7 @@ class NeuronArray:
 
         self.data_dict['decode%s' % name] = {'decoding_tc':decoding_tc, 'decoding_tc_err':decoding_tc_err}
 
-
-
-    def decoding_boothstrap_estimate(self, learner, scorer, smooth, n_folds=5, n_est=10):
+    def decoding_booth_estimate(self, learner, scorer, smooth, name, n_folds=5, n_est=10):
         """
         plots the time point by time point decoding accuracy time course,
         :param good_cells: list of index corresponding to good cells.
@@ -308,8 +319,8 @@ class NeuronArray:
         decoding_err_est = np.zeros((self.n_time, n_est))
 
         for i in range(n_est):
-            self.set_boothstrap_trial()
-            fr = self.get_fr(smooth)
+            self.set_booth_trial()
+            fr = self.get_fr(smooth=smooth, booth=True)
 
             ort = self.get_ort()
 
@@ -329,8 +340,9 @@ class NeuronArray:
 
             print('on my way, time point %i of %i' % (i+ 1, n_est))
 
-        self.decoding_tc = decoding_tc_est.mean(axis=1)
-        self.decoding_tc_err = decoding_err_est.mean(axis=1)
+        self.data_dict['decode%s_booth%i' % (name, n_est)] = {'decoding_tc': decoding_tc_est.mean(axis=1),
+                                                         'decoding_tc_err': decoding_err_est.mean(axis=1)}
+
 
     def get_theta(self):
         """ Transform orientation [0, 4] to rad angles

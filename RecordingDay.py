@@ -37,6 +37,11 @@ class RecordingDay:
             assert conditions[i] in data.keys()
             self.NA_list.append(NA(data, conditions[i]))
 
+        self.set_min_trials()
+
+        # self.alpha = 0.01
+        # self.set_cells()
+
         if 'presac_retino_only' in data.keys():
             self.NA_fix = NA(data, 'presac_retino_only')
 
@@ -69,17 +74,12 @@ class RecordingDay:
         else:
             self.save = True
 
-        dict = self.open_mat()
+        dic = self.open_mat()
 
         for na in self.NA_list:
+            na.set_data_dict(dic.pop(na.condition, {}))
 
-            dic = dict.pop(na.condition, {})
-            # print(type(dic[0][0]))
-            # print(dic[0][0].shape)
-            # print(dic[0][0])
-            na.set_data_dict(dic)
-
-        self.unused_data = dict
+        self.unused_data = dic
 
     def save_mat(self):
         mydict = {}
@@ -91,6 +91,34 @@ class RecordingDay:
 
         sio.savemat('%s%s_data.mat' % (self.figpath, self.day), mdict=mydict)
 
+    def cell_select(self, alpha, intersect=True):
+        # find good Cells for each conditions
+        # Keep only cells that are common to all condition (intersect)
+        good_cells = np.arange(96)
+        for na in self.NA_list:
+            na.ks_test()
+            na.cell_selection(alpha)
+            good_cells = np.intersect1d(good_cells, np.nonzero(na.cell_mask))
+
+        if intersect:
+            for na in self.NA_list:
+                na.set_cell(good_cells)
+
+    # def cell_select(self, alpha):
+    #     for na in self.NA_list:
+    #         na.ks_test()
+    #         na.cell_selection(alpha)
+
+    def set_min_trials(self):
+        # find the minimum number of trials
+        min_trials = np.inf
+        for na in self.NA_list:
+            if na.n_trial < min_trials:
+                min_trials = na.n_trial
+
+        for na in self.NA_list:
+            na.n_booth_trial = min_trials
+
     def trial_select(self, bounds):
         for na in self.NA_list:
             if na.condition is not 'postsac':
@@ -98,15 +126,14 @@ class RecordingDay:
 
     def equalize_trials(self):
         # find the minimum number of trials
-        min_trials = np.inf
-        for na in self.NA_list:
-            if na.n_trial < min_trials:
-                min_trials = na.n_trial
+        # min_trials = np.inf
+        # for na in self.NA_list:
+        #     if na.n_trial < min_trials:
+        #         min_trials = na.n_trial
 
         # equalize the trials for each condition
         for na in self.NA_list:
-            if na.n_trial > min_trials:
-                na.select_trials(min_trials)
+            na.set_booth_trial()
 
         # # StratifiedShuffleSplit preserve the percentage of sample from each class (orientation)
         # sss = StratifiedShuffleSplit(na.Y, n_iter=1, train_size=min_trials, test_size=None)
@@ -115,22 +142,33 @@ class RecordingDay:
         #     na.Y = na.Y[train_idx]
         # na.n_trial = min_trials
 
-    def cell_select(self, alpha):
-        for na in self.NA_list:
-            na.ks_test()
-            na.cell_selection(alpha)
-
     def set_tau(self, tau):
         for na in self.NA_list:
             na.set_tau(tau)
 
-    def decode(self, learner, scorer, smooth, name, n_folds=5):
-        for na in self.NA_list:
-            if na.exist_data('decode%s' % name):
-                if self.save is 'over':
-                    na.decoding(learner, scorer, smooth, name, n_folds=5)
-            else:
-                na.decoding(learner, scorer, smooth, name, n_folds=5)
+    def decode(self, learner, scorer, smooth, name, n_folds=5, booth=False):
+        if booth:
+            for na in self.NA_list:
+                if na.condition is 'postsac':
+                    if na.exist_data('decode%s' % name):
+                        if self.save is 'over':
+                            na.decoding_booth_estimate(learner, scorer, smooth, name, n_folds=n_folds)
+                    else:
+                        na.decoding_booth_estimate(learner, scorer, smooth, name, n_folds=n_folds)
+                else:
+                    if na.exist_data('decode%s' % name):
+                        if self.save is 'over':
+                            na.decoding(learner, scorer, smooth, name, n_folds=n_folds)
+                    else:
+                        na.decoding(learner, scorer, smooth, name, n_folds=n_folds)
+
+        else:
+            for na in self.NA_list:
+                if na.exist_data('decode%s' % name):
+                    if self.save is 'over':
+                        na.decoding(learner, scorer, smooth, name, n_folds)
+                else:
+                    na.decoding(learner, scorer, smooth, name, n_folds)
 
     def firing_rate(self, normal):
         for k, na in enumerate(self.NA_list):
@@ -186,12 +224,7 @@ class RecordingDay:
         y_max = -np.inf
 
         for k, na in enumerate(self.NA_list):
-        #     na.set_baseline()
-        #
-        #     na.set_pref_ort()
-        #
-        #     na.set_method(normal)
-        #
+
             pref_fr = na.data_dict['fr%s' % normal]['pref_fr']
             null_fr = na.data_dict['fr%s' % normal]['null_fr']
 
@@ -256,7 +289,6 @@ class RecordingDay:
         plt.savefig(filepath)
         plt.close(fig)
 
-
     def plot_orientation_bias(self):
 
         fig, axs = plt.subplots(1, 1, sharey=True)
@@ -273,7 +305,7 @@ class RecordingDay:
         axs.set_title('Orientation Bias')
         axs.grid(True)
         axs.set_xlabel('Time')
-        axs.set_xticks(na.edges[np.arange(na.n_time, step=4)])
+        axs.set_xticks(self.edges[np.arange(self.n_time, step=4)])
         axs.legend(loc='upper left')
 
         plt.show()

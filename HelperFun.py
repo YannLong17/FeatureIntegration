@@ -175,6 +175,8 @@ def plot_wiskers(theta, r, ax, label, color):
     ax.errorbar(unique, mean, std, linestyle='None', marker='.', label=label, color=color)
 
 
+import scipy.io as spio
+
 def loadmat(filename):
     '''
     this function should be called instead of direct spio.loadmat
@@ -204,24 +206,6 @@ def _todict(matobj):
         elem = matobj.__dict__[strg]
         if isinstance(elem, sio.matlab.mio5_params.mat_struct):
             dict[strg] = _todict(elem)
-        elif isinstance(elem,np.ndarray):
-            dict[strg] = _tolist(elem)
         else:
             dict[strg] = elem
     return dict
-
-def _tolist(ndarray):
-    '''
-    A recursive function which constructs lists from cellarrays
-    (which are loaded as numpy ndarrays), recursing into the elements
-    if they contain matobjects.
-    '''
-    elem_list = []
-    for sub_elem in ndarray:
-        if isinstance(sub_elem, sio.matlab.mio5_params.mat_struct):
-            elem_list.append(_todict(sub_elem))
-        elif isinstance(sub_elem,np.ndarray):
-            elem_list.append(_tolist(sub_elem))
-        else:
-            elem_list.append(sub_elem)
-    return elem_list
