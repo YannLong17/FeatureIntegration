@@ -208,9 +208,10 @@ class NeuronArray:
 
     def set_booth_trial(self):
         trials = np.nonzero(self.trial_mask)[0]
-        trials = np.random.choice(trials, size=self.n_booth_trial)
+        trials = np.random.choice(trials, size=self.n_booth_trial, replace=False)
         self.booth_mask[:] = False
         self.booth_mask[trials] = True
+
 
     def get_fr(self, booth=False, smooth=False, normal=False):
         if smooth:
@@ -239,8 +240,11 @@ class NeuronArray:
 
         return pref_fr, null_fr
 
-    def get_ort(self):
-        ort = self.Y[self.trial_mask]
+    def get_ort(self, booth=False):
+        if booth:
+            ort = self.Y[self.booth_mask]
+        else:
+            ort = self.Y[self.trial_mask]
         return ort
 
     def get_good_cells(self):
@@ -274,9 +278,11 @@ class NeuronArray:
                 decoding time course error, numpy array (n_conditions, n_times)
         """
 
-        fr = self.get_fr(smooth=smooth)
+        fr = self.get_fr(smooth=smooth, booth=True)
 
         ort = self.get_ort()
+
+        print('n_trials', fr.shape[0])
 
         if n_folds == 'max':
             n_folds = max_folds(fr, ort)
@@ -297,9 +303,9 @@ class NeuronArray:
             decoding_tc_err[t] = cv_accuracy.std(ddof=1) / np.sqrt(n_folds)
             print('on my way, time point %i of %i' % (t + 1, self.n_time))
 
-        self.data_dict['decode%s' % name] = {'decoding_tc':decoding_tc, 'decoding_tc_err':decoding_tc_err}
+        self.data_dict['decode'] = {'decoding_tc':decoding_tc, 'decoding_tc_err':decoding_tc_err, 'info': name}
 
-    def decoding_booth_estimate(self, learner, scorer, smooth, name, n_folds=5, n_est=10):
+    def decoding_booth_estimate(self, learner, scorer, smooth, name, n_folds=5, n_est=5):
         """
         plots the time point by time point decoding accuracy time course,
         :param good_cells: list of index corresponding to good cells.
@@ -321,8 +327,9 @@ class NeuronArray:
         for i in range(n_est):
             self.set_booth_trial()
             fr = self.get_fr(smooth=smooth, booth=True)
+            ort = self.get_ort(booth=True)
 
-            ort = self.get_ort()
+            print('n_trials', fr.shape[0])
 
             if n_folds == 'max':
                 n_folds = max_folds(fr, ort)
@@ -340,8 +347,8 @@ class NeuronArray:
 
             print('on my way, time point %i of %i' % (i+ 1, n_est))
 
-        self.data_dict['decode%s_booth%i' % (name, n_est)] = {'decoding_tc': decoding_tc_est.mean(axis=1),
-                                                         'decoding_tc_err': decoding_err_est.mean(axis=1)}
+        self.data_dict['decode'] = {'decoding_tc': decoding_tc_est.mean(axis=1), 'decoding_tc_err': decoding_err_est.mean(axis=1),
+                                                    'info': '%s_booth%i' % (name, n_est)}
 
 
     def get_theta(self):

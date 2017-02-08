@@ -149,6 +149,7 @@ class RecordingDay:
     def decode(self, learner, scorer, smooth, name, n_folds=5, booth=False):
         if booth:
             for na in self.NA_list:
+                na.n_booth_trial = booth
                 if na.condition is 'postsac':
                     if na.exist_data('decode%s' % name):
                         if self.save is 'over':
@@ -184,8 +185,8 @@ class RecordingDay:
         fig, axs = plt.subplots(1, 1, sharex=True, sharey=True)
 
         for k, na in enumerate(self.NA_list):
-            decoding_tc = na.data_dict['decode%s' % name]['decoding_tc']
-            decoding_tc_err = na.data_dict['decode%s' % name]['decoding_tc_err']
+            decoding_tc = na.data_dict['decode']['decoding_tc']
+            decoding_tc_err = na.data_dict['decode']['decoding_tc_err']
 
             l1, = axs.plot(na.edges, decoding_tc, label=na.condition, c=color_list[k], linewidth=.5)
             axs.fill_between(na.edges, decoding_tc + decoding_tc_err, decoding_tc - decoding_tc_err,

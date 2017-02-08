@@ -152,7 +152,7 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['presac', 'postsac']
+    conditions += [ 'postsac', 'presac', 'postsac_change']
 
     # Choose the file to analyse
     files = []
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     args += ['decoding', 'boothstrap']
     args += ['firing rate', 'sub']
     # args += ['tuning curve']
-    args += ['savemat', 'load']
+    args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     args += ['good trial']
     # args += ['quick']
