@@ -51,7 +51,8 @@ class VonMises:
     def fit(r, theta):
         p0 = VonMises.initial_guess(r, theta)
         lst_sqr = least_squares(VonMises.residuals, p0, bounds=([0., 0., 0, 0], [pi, inf, inf, inf]), args=(theta, r))
-        # if not lst_sqr['success']:
+        if not lst_sqr['success']:
+            print('Algorithm did not Converge')
         #     raise RuntimeError('Least Square Algorithm did not converge')
 
         return lst_sqr['x']

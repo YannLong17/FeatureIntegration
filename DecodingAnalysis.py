@@ -22,9 +22,7 @@ def main(args, files, conditions):
 
         alpha = 0.01
 
-        rd = RD(file, conditions)
-
-
+        rd = RD(file, conditions, alpha)
 
         if 'early trial' in args:
             bounds = [-0.15, -0.075]
@@ -43,7 +41,7 @@ def main(args, files, conditions):
 
         rd.trial_select(bounds)
 
-        rd.cell_select(alpha)
+        # rd.cell_select(alpha)
 
         for na in rd.NA_list:
             print(signature, na.condition, ' Visual Latency: ',  round(na.visual_latency.mean(), 3), ' n cell: ',
@@ -70,13 +68,9 @@ def main(args, files, conditions):
 
 
         if 'tuning curve' in args:
-
-            tempdict = {}
-            for na in rd.NA_list:
-                tempdict[na.condition] = na.plot_tuning_curves(figpath, file)
-
-            # if 'savemat' in args:
-            #     mydict['tuningParam'] = tempdict
+            visual_lat = 0.125
+            rd.tuning(visual_lat)
+            rd.plot_tuning_curves()
 
         if 'decoding' in args:
             # choose the learner
@@ -152,7 +146,7 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += [ 'postsac', 'presac', 'postsac_change']
+    conditions += ['presac', 'postsac', 'postsac_change']
 
     # Choose the file to analyse
     files = []
@@ -182,9 +176,9 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    args += ['decoding', 'boothstrap']
-    args += ['firing rate', 'sub']
-    # args += ['tuning curve']
+    # args += ['decoding', 'boothstrap']
+    # args += ['firing rate', 'sub']
+    args += ['tuning curve']
     args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     args += ['good trial']

@@ -33,14 +33,14 @@ class NeuronArray:
         self.X, self.Y, self.probe_lat = build_static(data, condition, np.arange(self.n_time), location=location,
                                           n_locations=n_locations)
 
-        # No probe Friring rate Data
+        # No probe Firing rate Data
         self.X_no, _, _ = build_static(data, condition, np.arange(self.n_time), location=location, n_locations=n_locations,
                                     noProbe=True)
 
         self.n_trial, self.n_cell, _ = self.X.shape
         self.n_booth_trial = self.n_trial
 
-        self.trial_mask = np.ones(self.n_trial, 'bool')
+        # self.trial_mask = np.ones(self.n_trial, 'bool')
         self.booth_mask = np.ones(self.n_trial, 'bool')
 
         self.p_val = np.ones((self.n_cell, self.n_time))
@@ -74,8 +74,11 @@ class NeuronArray:
     def trial_selection(self, bounds):
         mini, maxi = bounds
 
-        self.trial_mask = ((self.probe_lat > mini) & (self.probe_lat < maxi))
-        self.n_trial = self.trial_mask.sum()
+        trial_mask = ((self.probe_lat > mini) & (self.probe_lat < maxi))
+        self.X, self.Y, self.probe_lat = self.X[trial_mask, ...], self.Y[trial_mask, ], self.probe_lat[trial_mask]
+        self.n_trial = trial_mask.sum()
+        self.n_booth_trial = self.n_trial
+        self.booth_mask = np.ones(self.n_trial, 'bool')
 
     def cell_selection(self, alpha):
         self.cell_mask[:] = False
@@ -350,7 +353,6 @@ class NeuronArray:
         self.data_dict['decode'] = {'decoding_tc': decoding_tc_est.mean(axis=1), 'decoding_tc_err': decoding_err_est.mean(axis=1),
                                                     'info': '%s_booth%i' % (name, n_est)}
 
-
     def get_theta(self):
         """ Transform orientation [0, 4] to rad angles
         :param y: orientation vector
@@ -369,55 +371,20 @@ class NeuronArray:
 
         return np.abs(ob)
 
-    def plot_tuning_curves(self, figpath, file):
+    def tuning(self, time):
         """
-        Plot the tuning curve for all the good cells, for all conditions (each cell is a separate subplot, with every
-        conditions). Plot comprise of the average firing rate for each orientation (with std error whiskers) with a von
-        mises fit overlay
+        Find tuning curve for all the good cells with a von mises fit
         """
 
         vonmises_params = np.zeros((4, self.n_cell))
+        good_cells = np.nonzero(self.cell_mask)[0]
+        theta = self.get_theta()
 
-        # initialize the figure
-        size = min_square(self.n_cell)
-        fig, axs = plt.subplots(size, size, sharex=True, sharey=False)
-
-        m = 0
-        n = 0
-
-        for j, cell in enumerate(self.good_cells):
+        for j, cell in enumerate(good_cells):
             # for k in range(n_conditions):
             # find best fit
-            r = self.X[:, j, self.visual_latency[j]]
-            theta = self.get_theta()
+            r = self.X[:, cell, np.argmin(abs(self.edges-time))]
             vonmises_params[:, j] = VonMises.fit(r, theta)
 
-            # plot best fit + data
-            axs[m, n].plot(theta, VonMises.vonmises(theta, vonmises_params[:, j]), label='Von Mise Fit', c='black')
-            plot_wiskers(theta, r, axs[m, n], label='Empirical', color='black')
+        self.data_dict['tuning'] = {'vonmises_param': vonmises_params, 'fr': self.X[:, good_cells, np.argmin(abs(self.edges-time))], 'ort': theta, 'cells': good_cells}
 
-            axs[m, n].set_title('Cell #%i, t=%f.2' % (cell, self.edges[self.visual_latency[j]]))
-
-            m += 1
-            if m % size == 0:
-                n += 1
-                m = 0
-            if n % size == 0:
-                n = 0
-
-        handles, labels = axs[0, 0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc='lower right')
-        if not os.path.exists('%stuning_curve/' % figpath):
-            os.makedirs('%stuning_curve/' % figpath)
-
-        filepath = '%stuning_curve/%s_%s_tuningCurve' % (figpath, file, self.condition)
-        i = 0
-        while glob.glob('%s%i.*' % (filepath, i)):
-            i += 1
-
-        filepath = '%s%i' % (filepath, i)
-
-        fig.savefig(filepath, dpi=300)
-        plt.close(fig)
-
-        return vonmises_params

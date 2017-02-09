@@ -13,7 +13,7 @@ color_list = ['blue', 'black', 'red', 'green']
 
 
 class RecordingDay:
-    def __init__(self, day, conditions):
+    def __init__(self, day, conditions, alpha):
         path = glob.glob('data/%s*' % day)
         print(path[0])
         path = path[0]
@@ -30,6 +30,9 @@ class RecordingDay:
         self.angles = np.ravel(data['makeStim']['ort'][0, 0])
         self.n_ort = self.angles.shape[0]
 
+        # Good_cells
+        self.good_cells = np.arange(96)
+
         # Initialize
         n_condition = len(conditions)
         self.NA_list = []
@@ -37,16 +40,14 @@ class RecordingDay:
             assert conditions[i] in data.keys()
             self.NA_list.append(NA(data, conditions[i]))
 
-        self.set_min_trials()
+        self.trial_select([-0.25, -0.025])
+        self.cell_select(alpha)
 
-        # self.alpha = 0.01
-        # self.set_cells()
-
-        if 'presac_retino_only' in data.keys():
-            self.NA_fix = NA(data, 'presac_retino_only')
-
-        if 'presac_only' in data.keys():
-            self.NA_remap = NA(data, 'presac_only')
+        # if 'presac_retino_only' in data.keys():
+        #     self.NA_fix = NA(data, 'presac_retino_only')
+        #
+        # if 'presac_only' in data.keys():
+        #     self.NA_remap = NA(data, 'presac_only')
 
         # Analysed data File
         self.save = False
@@ -94,20 +95,14 @@ class RecordingDay:
     def cell_select(self, alpha, intersect=True):
         # find good Cells for each conditions
         # Keep only cells that are common to all condition (intersect)
-        good_cells = np.arange(96)
         for na in self.NA_list:
             na.ks_test()
             na.cell_selection(alpha)
-            good_cells = np.intersect1d(good_cells, np.nonzero(na.cell_mask))
+            self.good_cells = np.intersect1d(self.good_cells, np.nonzero(na.cell_mask))
 
         if intersect:
             for na in self.NA_list:
-                na.set_cell(good_cells)
-
-    # def cell_select(self, alpha):
-    #     for na in self.NA_list:
-    #         na.ks_test()
-    #         na.cell_selection(alpha)
+                na.set_cell(self.good_cells)
 
     def set_min_trials(self):
         # find the minimum number of trials
@@ -172,12 +167,20 @@ class RecordingDay:
                     na.decoding(learner, scorer, smooth, name, n_folds)
 
     def firing_rate(self, normal):
-        for k, na in enumerate(self.NA_list):
+        for na in self.NA_list:
             if na.exist_data('fr%s' % normal):
                 if self.save is 'over':
                     na.firing_rate_data(normal)
             else:
                 na.firing_rate_data(normal)
+
+    def tuning(self, time):
+        for na in self.NA_list:
+            if na.exist_data('tuning%i' % time):
+                if self.save is 'over':
+                    na.tuning(time)
+            else:
+                na.tuning(time)
 
     ### Plotting Fun ###
     def plot_decoding_time_course(self, name):
@@ -311,6 +314,57 @@ class RecordingDay:
 
         plt.show()
         plt.close(fig)
+
+    def plot_tuning_curves(self):
+        """
+        Plot the tuning curve for all the good cells, for all conditions (each cell is a separate subplot, with every
+        conditions). Plot comprise of the average firing rate for each orientation (with std error whiskers) with a von
+        mises fit overlay
+        """
+
+
+        # initialize the figure
+        size = min_square(self.good_cells.shape[0])
+        fig, axs = plt.subplots(size, size, sharex=True, sharey=False)
+
+        m = 0
+        n = 0
+
+        for j, cell in enumerate(self.good_cells):
+            for k, na in enumerate(self.NA_list):
+                r = na.data_dict['tuning']['fr'][:, j]
+                theta = na.data_dict['tuning']['ort']
+                vonmises_params = na.data_dict['tuning']['vonmises_param'][:, j]
+
+                # plot best fit + data
+                thet = np.linspace(0, np.pi, 100)
+                axs[m, n].plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=color_list[k])
+                plot_wiskers(theta, r, axs[m, n], label='', color=color_list[k])
+
+            # axs[m, n].set_title('Cell #%i' % (cell))
+            axs[m, n].axis('off')
+            m += 1
+            if m % size == 0:
+                n += 1
+                m = 0
+            if n % size == 0:
+                n = 0
+
+        handles, labels = axs[0, 0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='lower right')
+        if not os.path.exists('%stuning_curve/' % self.figpath):
+            os.makedirs('%stuning_curve/' % self.figpath)
+
+        filepath = '%stuning_curve/%s_tuningCurve' % (self.figpath, self.day)
+        i = 0
+        while glob.glob('%s%i.*' % (filepath, i)):
+            i += 1
+
+        filepath = '%s%i' % (filepath, i)
+
+        fig.savefig(filepath, dpi=300)
+        plt.close(fig)
+
 
 
 
