@@ -68,9 +68,14 @@ def main(args, files, conditions):
 
 
         if 'tuning curve' in args:
-            visual_lat = 0.125
-            rd.tuning(visual_lat)
-            rd.plot_tuning_curves()
+            vis_lat = 0.125
+            rd.tuning(vis_lat)
+            if 'popavg' in args:
+                rd.plot_pop_tuning(vis_lat, 'ovr')
+            if 'popall' in args:
+                rd.plot_pop_tuning(vis_lat, 'all')
+            if 'cbc' in args:
+                rd.plot_tuning_curves(vis_lat, False)
 
         if 'decoding' in args:
             # choose the learner
@@ -146,7 +151,7 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['presac', 'postsac', 'postsac_change']
+    conditions += ['postsac_change', 'presac','postsac']
 
     # Choose the file to analyse
     files = []
@@ -177,8 +182,8 @@ if __name__ == '__main__':
 
     args = []
     # args += ['decoding', 'boothstrap']
-    # args += ['firing rate', 'sub']
-    args += ['tuning curve']
+    # args += ['firing rate', 'raw']
+    args += ['tuning curve', 'popavg']
     args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     args += ['good trial']

@@ -121,7 +121,8 @@ def find_closest(array, target):
     """
     target = target % np.pi                                 # our angles are always in range [0, pi]!
     idx = np.argmin(np.abs(array - target))
-    return array[idx]
+    # return array[idx]
+    return idx
 
 
 def find_null(array, target):
@@ -133,7 +134,8 @@ def find_null(array, target):
     """
     target = (target + np.pi/2) % np.pi                    # our angles are always in range [0, pi]!
     idx = np.argmin(np.abs(array - target))
-    return array[idx]
+    # return array[idx]
+    return idx
 
 
 def max_folds(X, y):

@@ -3,6 +3,7 @@ from numpy import exp, sqrt, cos, sin, pi, inf
 from numpy.linalg import inv, norm
 import scipy.stats as st
 from scipy.optimize import least_squares
+from scipy.special import iv
 
 
 # Von mises orientation tuning
@@ -28,13 +29,19 @@ class VonMises:
             if temp <= min:
                 min = temp
 
-        return [pref_or, 1, max, min]
+        return [pref_or, 2, max, min]
 
     @staticmethod
     def vonmises(theta, params):
         phi, k, A, B = params
         """ Von Mises Distribution, defined on interval [0, pi]"""
         return A * exp(k * (cos(2 * (theta - phi)) - 1)) + B
+
+    @staticmethod
+    def vonmises2(theta, params):
+        phi, k, A, B = params
+        """ Von Mises Distribution, defined on interval [0, 2pi]"""
+        return A * exp(k * cos(theta - phi)) / (2*np.pi*iv(0, k)) + B
 
     @staticmethod
     def residuals(p, theta, r):
@@ -50,7 +57,7 @@ class VonMises:
     @staticmethod
     def fit(r, theta):
         p0 = VonMises.initial_guess(r, theta)
-        lst_sqr = least_squares(VonMises.residuals, p0, bounds=([0., 0., 0, 0], [pi, inf, inf, inf]), args=(theta, r))
+        lst_sqr = least_squares(VonMises.residuals, p0, bounds=([0., 0, 0, 0], [pi, inf, inf, inf]), args=(theta, r))
         if not lst_sqr['success']:
             print('Algorithm did not Converge')
         #     raise RuntimeError('Least Square Algorithm did not converge')

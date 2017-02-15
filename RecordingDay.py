@@ -31,7 +31,8 @@ class RecordingDay:
         self.n_ort = self.angles.shape[0]
 
         # Good_cells
-        self.good_cells = np.arange(96)
+        # self.good_cells = np.arange(96)
+        self.good_cells = [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89]
 
         # Initialize
         n_condition = len(conditions)
@@ -136,6 +137,27 @@ class RecordingDay:
         #     na.X = na.X[train_idx, ...]
         #     na.Y = na.Y[train_idx]
         # na.n_trial = min_trials
+
+    def aligned_ort(self, center, time):
+        """
+        For all conditions, align all cell to the the same prefered orientation, according to the first condition prefered orientation.
+        :return:
+        """
+        pref_ort = self.NA_list[0].get_pref_ort(time)
+        fr = []
+        ort = []
+
+        for na in self.NA_list:
+            r = na.get_fr(times=np.argmin(np.abs(self.edges - time)))
+            theta = np.zeros((na.n_trial, na.n_cell))
+            for k, cell in enumerate(self.good_cells):
+                offset = center - pref_ort[cell]
+                theta[:, k] = na.get_theta(offset)
+            fr.append(r)
+            ort.append(theta)
+
+        return fr, ort
+
 
     def set_tau(self, tau):
         for na in self.NA_list:
@@ -315,13 +337,18 @@ class RecordingDay:
         plt.show()
         plt.close(fig)
 
-    def plot_tuning_curves(self):
+    def plot_tuning_curves(self, vis_lat, aligned=False):
         """
         Plot the tuning curve for all the good cells, for all conditions (each cell is a separate subplot, with every
         conditions). Plot comprise of the average firing rate for each orientation (with std error whiskers) with a von
         mises fit overlay
         """
 
+        if aligned:
+            center = 1
+            fr, ort = self.aligned_ort(center, vis_lat)
+
+        pref_ort = self.NA_list[0].get_pref_ort(vis_lat)
 
         # initialize the figure
         size = min_square(self.good_cells.shape[0])
@@ -331,15 +358,26 @@ class RecordingDay:
         n = 0
 
         for j, cell in enumerate(self.good_cells):
+            axs[m, n].axvline(x=np.radians(self.angles[pref_ort[cell]]))
             for k, na in enumerate(self.NA_list):
-                r = na.data_dict['tuning']['fr'][:, j]
-                theta = na.data_dict['tuning']['ort']
-                vonmises_params = na.data_dict['tuning']['vonmises_param'][:, j]
+                if aligned:
+                    r = fr[k][:, j]
+                    theta = ort[k][:, j]
+                    vonmises_params = VonMises.fit(r, theta)
+                    # vonmises_params[3] = 0
+                    # vonmises_params[0] = 1
+                else:
+                    r = na.data_dict['tuning']['fr'][:, j]
+                    theta = na.data_dict['tuning']['ort']
+                    vonmises_params = na.data_dict['tuning']['vonmises_param'][:, j]
 
                 # plot best fit + data
                 thet = np.linspace(0, np.pi, 100)
                 axs[m, n].plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=color_list[k])
                 plot_wiskers(theta, r, axs[m, n], label='', color=color_list[k])
+
+                # axs[m, n].axvline(x=vonmises_params[0])
+
 
             # axs[m, n].set_title('Cell #%i' % (cell))
             axs[m, n].axis('off')
@@ -350,12 +388,13 @@ class RecordingDay:
             if n % size == 0:
                 n = 0
 
+
         handles, labels = axs[0, 0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='lower right')
         if not os.path.exists('%stuning_curve/' % self.figpath):
             os.makedirs('%stuning_curve/' % self.figpath)
 
-        filepath = '%stuning_curve/%s_tuningCurve' % (self.figpath, self.day)
+        filepath = '%stuning_curve/%s_tuningCurve%i' % (self.figpath, self.day, int(vis_lat*100))
         i = 0
         while glob.glob('%s%i.*' % (filepath, i)):
             i += 1
@@ -365,7 +404,58 @@ class RecordingDay:
         fig.savefig(filepath, dpi=300)
         plt.close(fig)
 
+    def plot_pop_tuning(self, vis_lat, arg='ovr'):
 
+        center = 2
+        fr, ort = self.aligned_ort(center, vis_lat)
+
+        if arg is 'ovr':
+            fig, axs = plt.subplots(1, 1)
+        elif arg is 'all':
+            fig, axs = plt.subplots(len(self.NA_list), sharey=True)
+
+        thet = np.linspace(0, np.pi, 100)
+
+        for k, na in enumerate(self.NA_list):
+            r, theta = fr[k], ort[k]
+            if arg is 'ovr':
+                r = np.reshape(r, (r.size,))
+                theta = np.reshape(theta, (theta.size,))
+                vonmises_params = VonMises.fit(r, theta)
+                axs.plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=color_list[k])
+                plot_wiskers(theta, r, axs, label='', color=color_list[k])
+
+            elif arg is 'all':
+                cmap = plt.get_cmap('jet')
+                colors = cmap(np.linspace(0, 1.0, len(self.good_cells)))
+                for j, cell in enumerate(self.good_cells):
+                    vonmises_params = VonMises.fit(r[:, j], theta[:, j])
+                    # print(vonmises_params)
+                    # vonmises_params[3] = 0
+                    # vonmises_params[0] = 1
+
+                    axs[k].plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=colors[j])
+                    plot_wiskers(theta[:, j], r[:, j], axs[k], label='', color=colors[j])
+
+                axs[k].set_ylim( [0, 200])
+                axs[k].set_title('%s' % na.condition)
+
+        if arg is 'ovr':
+            handles, labels = axs.get_legend_handles_labels()
+            fig.legend(handles, labels, loc='lower right')
+
+        if not os.path.exists('%stuning_curve/' % self.figpath):
+            os.makedirs('%stuning_curve/' % self.figpath)
+
+        filepath = '%stuning_curve/%s_tuningCurve%i' % (self.figpath, self.day, int(vis_lat*100))
+        i = 0
+        while glob.glob('%s%i.*' % (filepath, i)):
+            i += 1
+
+        filepath = '%s%i' % (filepath, i)
+
+        fig.savefig(filepath, dpi=300)
+        plt.close(fig)
 
 
 

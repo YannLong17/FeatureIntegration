@@ -33,6 +33,9 @@ class NeuronArray:
         self.X, self.Y, self.probe_lat = build_static(data, condition, np.arange(self.n_time), location=location,
                                           n_locations=n_locations)
 
+        if self.condition is 'postsac_change':
+            self.flip_ort()
+
         # No probe Firing rate Data
         self.X_no, _, _ = build_static(data, condition, np.arange(self.n_time), location=location, n_locations=n_locations,
                                     noProbe=True)
@@ -173,6 +176,9 @@ class NeuronArray:
 
         return fr
 
+    def flip_ort(self):
+        self.Y = (self.Y + self.n_ort/2) % self.n_ort
+
     def set_data_dict(self, dict):
         self.data_dict = dict
 
@@ -197,14 +203,17 @@ class NeuronArray:
     def set_baseline(self, baseline_time=-0.150):
         baseline_mask = (self.edges < baseline_time)
         # print(self.X[self.trial_mask, ...][..., baseline_mask].shape)
-        self.baseline = self.X[self.trial_mask, ...][..., baseline_mask].mean(axis=(0, 2))
+        self.baseline = self.X[..., baseline_mask].mean(axis=(0, 2))
 
-    def set_pref_ort(self):
+    def set_pref_ort(self, t=None):
         # find the prefered orientation for each cell at visual latency
-        theta = self.get_theta()[self.trial_mask]
-        for i in range(96):
-            vis_lat_idx = np.argmin(np.abs(self.edges - self.visual_latency[i]))
-            r = self.X[self.trial_mask, i, vis_lat_idx]
+        theta = self.get_theta()
+        for i in np.nonzero(self.cell_mask)[0]:
+            if t:
+                vis_lat_idx = np.argmin(np.abs(self.edges - t))
+            else:
+                vis_lat_idx = np.argmin(np.abs(self.edges - self.visual_latency[i]))
+            r = self.X[:, i, vis_lat_idx]
             params = VonMises.fit(r, theta)
             self.pref_ort[i] = find_closest(np.unique(theta), params[0])
             self.null_ort[i] = find_null(np.unique(theta), params[0])
@@ -215,8 +224,9 @@ class NeuronArray:
         self.booth_mask[:] = False
         self.booth_mask[trials] = True
 
-
-    def get_fr(self, booth=False, smooth=False, normal=False):
+    def get_fr(self, booth=False, smooth=False, normal=False, times=None):
+        if times is None:
+            times = np.arange(self.n_time)
         if smooth:
             fr = self.smooth()
 
@@ -226,9 +236,10 @@ class NeuronArray:
         else: fr = self.X
 
         if booth:
-            fr = fr[self.booth_mask, ...][:, self.cell_mask, :]
+            fr = fr[self.booth_mask, ...][:, self.cell_mask, :][:, :, times]
         else:
-            fr = fr[self.trial_mask, ...][:, self.cell_mask, :]
+            fr = fr[:, self.cell_mask, :][:, :, times]
+
         return fr
 
     def get_pref_fr(self):
@@ -247,8 +258,12 @@ class NeuronArray:
         if booth:
             ort = self.Y[self.booth_mask]
         else:
-            ort = self.Y[self.trial_mask]
+            ort = self.Y
         return ort
+
+    def get_pref_ort(self, t):
+        self.set_pref_ort(t)
+        return self.pref_ort
 
     def get_good_cells(self):
         return np.nonzero(self.cell_mask)
@@ -353,13 +368,18 @@ class NeuronArray:
         self.data_dict['decode'] = {'decoding_tc': decoding_tc_est.mean(axis=1), 'decoding_tc_err': decoding_err_est.mean(axis=1),
                                                     'info': '%s_booth%i' % (name, n_est)}
 
-    def get_theta(self):
+    def get_theta(self, offset=None):
         """ Transform orientation [0, 4] to rad angles
         :param y: orientation vector
         :return: radians angles vector
         """
         theta = np.zeros(self.Y.shape)
-        for i, a in enumerate(self.Y):
+        if offset:
+            ort = (self.Y + offset) % self.n_ort
+        else:
+            ort = self.Y
+
+        for i, a in enumerate(ort):
             theta[i, ] = np.radians(self.angles[int(a),]) % np.pi
         return theta
 
