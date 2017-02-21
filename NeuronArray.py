@@ -374,13 +374,15 @@ class NeuronArray:
         :return: radians angles vector
         """
         theta = np.zeros(self.Y.shape)
+
         if offset:
+            # print('offset: ', offset, '\n Y:', self.Y, '\n Off Y:', (self.Y + offset) % self.n_ort)
             ort = (self.Y + offset) % self.n_ort
         else:
             ort = self.Y
 
         for i, a in enumerate(ort):
-            theta[i, ] = np.radians(self.angles[int(a),]) % np.pi
+            theta[i, ] = np.radians(self.angles[int(a)]) % np.pi
         return theta
 
     def get_orientation_bias(self):

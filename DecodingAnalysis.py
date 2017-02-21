@@ -15,6 +15,11 @@ from RecordingDay import RecordingDay as RD
 from HelperFun import load
 
 
+day_list = {'p128':'open_loop',
+            'p131': 'closed_loop',
+            'p132': 'closed_loop'
+            }
+
 def main(args, files, conditions):
     for file in files:
         signature = ''
@@ -39,7 +44,8 @@ def main(args, files, conditions):
         else:
             bounds = [-np.inf, np.inf]
 
-        rd.trial_select(bounds)
+        if day_list[file] is 'open_loop':
+            rd.trial_select(bounds)
 
         # rd.cell_select(alpha)
 
@@ -71,11 +77,13 @@ def main(args, files, conditions):
             vis_lat = 0.125
             rd.tuning(vis_lat)
             if 'popavg' in args:
-                rd.plot_pop_tuning(vis_lat, 'ovr')
+                rd.plot_pop_tuning(vis_lat, arg='ovr')
             if 'popall' in args:
-                rd.plot_pop_tuning(vis_lat, 'all')
+                rd.plot_pop_tuning(vis_lat, arg='all')
             if 'cbc' in args:
-                rd.plot_tuning_curves(vis_lat, False)
+                rd.plot_tuning_curves(vis_lat, False, 2)
+            if 'cbca' in args:
+                rd.plot_tuning_curves(vis_lat, True)
 
         if 'decoding' in args:
             # choose the learner
@@ -151,11 +159,11 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['postsac_change', 'presac','postsac']
+    conditions += ['postsac', 'presac']
 
     # Choose the file to analyse
     files = []
-    files += ['p128']
+    files += ['p132']
 
     # Cell selection
     kosher = False
@@ -173,6 +181,10 @@ if __name__ == '__main__':
             # 'sub': substract baseline
 
         # 'tuning curve' -- plot the tuning curve for each good cell at visual latency
+        #     'popavg': population average of aligned cell
+        #     'popall': all aligned cell for each conditions
+        #     'cbc': subplot for each cell
+        #     'cbca': aligned cell by cell
 
         # 'savemat': saves the graph data to a matlab file
         #         'Overwrite' - replace the data on file for given conditions
@@ -181,12 +193,12 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    # args += ['decoding', 'boothstrap']
-    # args += ['firing rate', 'raw']
-    args += ['tuning curve', 'popavg']
+    # args += ['decoding', 'smooth']
+    # args += ['firing rate', 'sub']
+    args += ['tuning curve', 'cbca', 'popavg']
     args += ['savemat', 'overwrite']
     # args += ['orientation bias']
-    args += ['good trial']
+    # args += ['good trial']
     # args += ['quick']
 
     main(args, files, conditions)

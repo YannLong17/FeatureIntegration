@@ -9,7 +9,11 @@ from fittingFun import VonMises
 from sklearn.cross_validation import cross_val_score, StratifiedShuffleSplit, StratifiedKFold
 
 
-color_list = ['blue', 'black', 'red', 'green']
+color_list = ['blue', 'black', 'red', 'green', 'orange', 'magenta']
+good_cell_dic = {'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89],
+                 'p131': [34, 35, 40, 52, 67, 69, 71, 84, 87, 88, 89],
+                 'p132': [15, 34, 40, 88, 89]
+                 }
 
 
 class RecordingDay:
@@ -31,8 +35,9 @@ class RecordingDay:
         self.n_ort = self.angles.shape[0]
 
         # Good_cells
-        # self.good_cells = np.arange(96)
-        self.good_cells = [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89]
+        self.good_cells = np.arange(96)
+        if day in good_cell_dic.keys():
+            self.good_cells = good_cell_dic[day]
 
         # Initialize
         n_condition = len(conditions)
@@ -41,7 +46,7 @@ class RecordingDay:
             assert conditions[i] in data.keys()
             self.NA_list.append(NA(data, conditions[i]))
 
-        self.trial_select([-0.25, -0.025])
+        # self.trial_select([-0.25, -0.025])
         self.cell_select(alpha)
 
         # if 'presac_retino_only' in data.keys():
@@ -53,7 +58,6 @@ class RecordingDay:
         # Analysed data File
         self.save = False
         self.unused_data = None
-
 
     def open_mat(self):
         if os.path.isfile('%s%s_data.mat' % (self.figpath, self.day)):
@@ -138,7 +142,7 @@ class RecordingDay:
         #     na.Y = na.Y[train_idx]
         # na.n_trial = min_trials
 
-    def aligned_ort(self, center, time):
+    def aligned_ort(self, center, time, arg='first'):
         """
         For all conditions, align all cell to the the same prefered orientation, according to the first condition prefered orientation.
         :return:
@@ -146,8 +150,25 @@ class RecordingDay:
         pref_ort = self.NA_list[0].get_pref_ort(time)
         fr = []
         ort = []
+        if arg is 'first':
+            pref_ort = self.NA_list[0].get_pref_ort(time)
+
+        elif arg is 'all':
+            for na in self.NA_list[1:]:
+                na.set_pref_ort(time)
+            pref_ort = self.NA_list[0].get_pref_ort(time)
+            # print(pref_ort)
+            mask = np.ones(len(self.good_cells), dtype=bool)
+            for j, cell in enumerate(self.good_cells):
+                for na in self.NA_list[1:]:
+                    if na.pref_ort[cell] != pref_ort[cell]:
+                        mask[j] = 0
+
+            self.good_cells = self.good_cells[mask]
+
 
         for na in self.NA_list:
+            na.set_cell(self.good_cells)
             r = na.get_fr(times=np.argmin(np.abs(self.edges - time)))
             theta = np.zeros((na.n_trial, na.n_cell))
             for k, cell in enumerate(self.good_cells):
@@ -157,7 +178,6 @@ class RecordingDay:
             ort.append(theta)
 
         return fr, ort
-
 
     def set_tau(self, tau):
         for na in self.NA_list:
@@ -337,7 +357,7 @@ class RecordingDay:
         plt.show()
         plt.close(fig)
 
-    def plot_tuning_curves(self, vis_lat, aligned=False):
+    def plot_tuning_curves(self, vis_lat, aligned=False, size=None):
         """
         Plot the tuning curve for all the good cells, for all conditions (each cell is a separate subplot, with every
         conditions). Plot comprise of the average firing rate for each orientation (with std error whiskers) with a von
@@ -345,20 +365,24 @@ class RecordingDay:
         """
 
         if aligned:
-            center = 1
+            center = self.n_ort // 2
             fr, ort = self.aligned_ort(center, vis_lat)
+            print('aligned cells', self.good_cells)
 
-        pref_ort = self.NA_list[0].get_pref_ort(vis_lat)
+        pref_ort = []
+        for na in self.NA_list:
+            pref_ort.append(na.get_pref_ort(vis_lat))
 
         # initialize the figure
-        size = min_square(self.good_cells.shape[0])
+        if not size:
+            size = min_square(self.good_cells.shape[0])
         fig, axs = plt.subplots(size, size, sharex=True, sharey=False)
 
         m = 0
         n = 0
 
+        print(self.good_cells)
         for j, cell in enumerate(self.good_cells):
-            axs[m, n].axvline(x=np.radians(self.angles[pref_ort[cell]]))
             for k, na in enumerate(self.NA_list):
                 if aligned:
                     r = fr[k][:, j]
@@ -366,10 +390,13 @@ class RecordingDay:
                     vonmises_params = VonMises.fit(r, theta)
                     # vonmises_params[3] = 0
                     # vonmises_params[0] = 1
+                    axs[m, n].axvline(x=np.radians(self.angles[center]), c=color_list[k])
+
                 else:
                     r = na.data_dict['tuning']['fr'][:, j]
                     theta = na.data_dict['tuning']['ort']
                     vonmises_params = na.data_dict['tuning']['vonmises_param'][:, j]
+                    axs[m, n].axvline(x=np.radians(self.angles[pref_ort[k][cell]]), c=color_list[k])
 
                 # plot best fit + data
                 thet = np.linspace(0, np.pi, 100)
@@ -378,35 +405,26 @@ class RecordingDay:
 
                 # axs[m, n].axvline(x=vonmises_params[0])
 
-
-            # axs[m, n].set_title('Cell #%i' % (cell))
-            axs[m, n].axis('off')
+            axs[m, n].set_title('Cell #%i' % (cell))
+            # axs[m, n].axis('off')
             m += 1
             if m % size == 0:
                 n += 1
                 m = 0
-            if n % size == 0:
+            if n and n % size == 0:
                 n = 0
+                handles, labels = axs[0, 0].get_legend_handles_labels()
+                fig.legend(handles, labels, loc='lower right')
+                save_fig(fig, '%stuning_curve/' % self.figpath, '%s_tuningCurve%i' % (self.day, int(vis_lat*100)))
+                fig, axs = plt.subplots(size, size, sharex=True, sharey=False)
+        if fig:
+            handles, labels = axs[0, 0].get_legend_handles_labels()
+            fig.legend(handles, labels, loc='lower right')
+            save_fig(fig, '%stuning_curve/' % self.figpath, '%s_tuningCurve%i' % (self.day, int(vis_lat * 100)))
 
+    def plot_pop_tuning(self, vis_lat, normal=True, arg='ovr'):
 
-        handles, labels = axs[0, 0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc='lower right')
-        if not os.path.exists('%stuning_curve/' % self.figpath):
-            os.makedirs('%stuning_curve/' % self.figpath)
-
-        filepath = '%stuning_curve/%s_tuningCurve%i' % (self.figpath, self.day, int(vis_lat*100))
-        i = 0
-        while glob.glob('%s%i.*' % (filepath, i)):
-            i += 1
-
-        filepath = '%s%i' % (filepath, i)
-
-        fig.savefig(filepath, dpi=300)
-        plt.close(fig)
-
-    def plot_pop_tuning(self, vis_lat, arg='ovr'):
-
-        center = 2
+        center = self.n_ort // 2
         fr, ort = self.aligned_ort(center, vis_lat)
 
         if arg is 'ovr':
@@ -418,9 +436,25 @@ class RecordingDay:
 
         for k, na in enumerate(self.NA_list):
             r, theta = fr[k], ort[k]
+
+            if normal:
+                for j, cell in enumerate(self.good_cells):
+                    mini = np.inf
+                    maxi = -np.inf
+                    for o in np.unique(theta[:, j]):
+                        mu = r[theta[:, j] == o, j].mean()
+                        if mu < mini:
+                            mini = mu
+                        if mu > maxi:
+                            maxi = mu
+                    # r[:, j] = (r[:, j] - np.min(r[:, j]))/(np.max(r[:, j])-np.min(r[:, j]))
+                    # temp = np.maximum(r[:, j] - mini, np.zeros(r[:, j].shape))
+                    r[:, j] = (r[:, j] - mini)/(maxi-mini)
+
             if arg is 'ovr':
-                r = np.reshape(r, (r.size,))
-                theta = np.reshape(theta, (theta.size,))
+                r = np.reshape(r.T, (r.size,))
+                # print('normal', np.min(r), np.max(r))
+                theta = np.reshape(theta.T, (theta.size,))
                 vonmises_params = VonMises.fit(r, theta)
                 axs.plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=color_list[k])
                 plot_wiskers(theta, r, axs, label='', color=color_list[k])
@@ -437,7 +471,7 @@ class RecordingDay:
                     axs[k].plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=colors[j])
                     plot_wiskers(theta[:, j], r[:, j], axs[k], label='', color=colors[j])
 
-                axs[k].set_ylim( [0, 200])
+                axs[k].set_ylim([0, 1])
                 axs[k].set_title('%s' % na.condition)
 
         if arg is 'ovr':

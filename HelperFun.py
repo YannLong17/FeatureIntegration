@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import ks_2samp
 import scipy.io as sio
+import matplotlib.pyplot as plt
+import os, glob
 
 
 
@@ -177,7 +179,19 @@ def plot_wiskers(theta, r, ax, label, color):
     ax.errorbar(unique, mean, std, linestyle='None', marker='.', label=label, color=color)
 
 
-import scipy.io as spio
+def save_fig(fig, directory, name):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    filepath = '%s%s' % (directory, name)
+    i = 0
+    while glob.glob('%s%i.*' % (filepath, i)):
+        i += 1
+
+    filepath = '%s%i' % (filepath, i)
+
+    fig.savefig(filepath, dpi=300)
+    plt.close(fig)
 
 def loadmat(filename):
     '''
