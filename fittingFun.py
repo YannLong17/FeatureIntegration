@@ -29,7 +29,7 @@ class VonMises:
             if temp <= min:
                 min = temp
 
-        return [pref_or, 2, max, min]
+        return [pref_or, 1, max, min]
 
     @staticmethod
     def vonmises(theta, params):

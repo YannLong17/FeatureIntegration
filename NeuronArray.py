@@ -10,7 +10,7 @@ from HelperFun import *
 
 
 class NeuronArray:
-    def __init__(self, data, condition, n_locations=1, location=0):
+    def __init__(self, data, condition, n_locations=1):
         self.condition = condition
 
         # Time axis
@@ -22,23 +22,32 @@ class NeuronArray:
         self.n_ort = self.angles.shape[0]
 
         # Probe Location
-        assert location in range(n_locations)
         assert n_locations == (data[condition].shape[1] - 1) / self.n_ort
-        # self.n_loc = n_locations
-        # self.loc = location
+        self.n_loc = n_locations
+        self.pref_loc = np.ones(self.n_cell)
 
         # Firing Rate: X[n_trial, n_cell, n_times
-        # Probe location: Y[n_trial]
+        # Probe Orientation: Y[n_trial]
         # Probe latency: probe_lat[n_trial]
-        self.X, self.Y, self.probe_lat = build_static(data, condition, np.arange(self.n_time), location=location,
-                                          n_locations=n_locations)
+        if n_locations > 1:
+            self.X = []
+            self.Y = []
+            for i in range(n_locations):
+                x, y = build_static(data, condition, np.arange(self.n_time), location=i, n_locations=n_locations)
+                self.X.append(x)
+                self.Y.append(y)
+
+
+
+        else:
+            self.X, self.Y, self.probe_lat = build_static(data, condition, np.arange(self.n_time), location=0,
+                                          n_locations=1)
 
         if self.condition is 'postsac_change':
             self.flip_ort()
 
         # No probe Firing rate Data
-        self.X_no, _, _ = build_static(data, condition, np.arange(self.n_time), location=location, n_locations=n_locations,
-                                    noProbe=True)
+        self.X_no, _, _ = build_static(data, condition, np.arange(self.n_time), noProbe=True)
 
         self.n_trial, self.n_cell, _ = self.X.shape
         self.n_booth_trial = self.n_trial

@@ -15,6 +15,8 @@ good_cell_dic = {'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88
                  'p132': [15, 34, 40, 88, 89]
                  }
 
+n_location_list = {'p134': 2
+                }
 
 class RecordingDay:
     def __init__(self, day, conditions, alpha):
@@ -42,9 +44,17 @@ class RecordingDay:
         # Initialize
         n_condition = len(conditions)
         self.NA_list = []
-        for i in range(n_condition):
-            assert conditions[i] in data.keys()
-            self.NA_list.append(NA(data, conditions[i]))
+
+        if day in n_location_list.keys():
+            n_location = n_location_list[day]
+            for i in range(n_condition):
+                assert conditions[i] in data.keys()
+                self.NA_list.append(NA(data, conditions[i]))
+
+        else:
+            for i in range(n_condition):
+                assert conditions[i] in data.keys()
+                self.NA_list.append(NA(data, conditions[i]))
 
         # self.trial_select([-0.25, -0.025])
         self.cell_select(alpha)
