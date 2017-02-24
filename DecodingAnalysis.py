@@ -17,7 +17,9 @@ from HelperFun import load
 
 day_list = {'p128':'open_loop',
             'p131': 'closed_loop',
-            'p132': 'closed_loop'
+            'p132': 'closed_loop',
+            'p134': 'closed_loop',
+            'p135': 'closed_loop'
             }
 
 def main(args, files, conditions):
@@ -71,7 +73,6 @@ def main(args, files, conditions):
             rd.firing_rate(normal)
 
             rd.plot_firing_rate(normal, signature)
-
 
         if 'tuning curve' in args:
             vis_lat = 0.125
@@ -163,7 +164,7 @@ if __name__ == '__main__':
 
     # Choose the file to analyse
     files = []
-    files += ['p132']
+    files += ['p135']
 
     # Cell selection
     kosher = False
@@ -195,10 +196,11 @@ if __name__ == '__main__':
     args = []
     # args += ['decoding', 'smooth']
     # args += ['firing rate', 'sub']
-    args += ['tuning curve', 'cbca', 'popavg']
+    args += ['tuning curve', 'cbca']
     args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     # args += ['good trial']
+    args += ['pref_loc']
     # args += ['quick']
 
     main(args, files, conditions)

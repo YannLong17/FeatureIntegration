@@ -22,7 +22,7 @@ class VonMises:
         pref_or = -1.
 
         for angle in unique:
-            temp = np.mean(r[theta == angle])
+            temp = np.nanmean(r[theta == angle])
             if temp >= max:
                 max = temp
                 pref_or = angle
@@ -51,12 +51,13 @@ class VonMises:
     @staticmethod
     def r_squared(theta, r, p):
         ss_res = (VonMises.residuals(p, theta, r)**2).sum()
-        ss_tot = ((r - r.mean())**2).sum()
+        ss_tot = ((r - r.nanmean())**2).sum()
         return 1 - (ss_res/ss_tot)
 
     @staticmethod
     def fit(r, theta):
         p0 = VonMises.initial_guess(r, theta)
+        # print(p0)
         lst_sqr = least_squares(VonMises.residuals, p0, bounds=([0., 0, 0, 0], [pi, inf, inf, inf]), args=(theta, r))
         if not lst_sqr['success']:
             print('Algorithm did not Converge')

@@ -12,10 +12,13 @@ from sklearn.cross_validation import cross_val_score, StratifiedShuffleSplit, St
 color_list = ['blue', 'black', 'red', 'green', 'orange', 'magenta']
 good_cell_dic = {'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89],
                  'p131': [34, 35, 40, 52, 67, 69, 71, 84, 87, 88, 89],
-                 'p132': [15, 34, 40, 88, 89]
+                 'p132': [15, 34, 40, 88, 89],
+                 'p135': [33, 34, 35, 39, 40, 41, 51, 63, 67, 78, 82, 80, 83, 85, 84, 88, 89]
                  }
 
-n_location_list = {'p134': 2
+n_location_list = {'p134': 2,
+
+                   'p135': 2
                 }
 
 class RecordingDay:
@@ -49,7 +52,7 @@ class RecordingDay:
             n_location = n_location_list[day]
             for i in range(n_condition):
                 assert conditions[i] in data.keys()
-                self.NA_list.append(NA(data, conditions[i]))
+                self.NA_list.append(NA(data, conditions[i], n_location))
 
         else:
             for i in range(n_condition):
@@ -158,8 +161,6 @@ class RecordingDay:
         :return:
         """
         pref_ort = self.NA_list[0].get_pref_ort(time)
-        fr = []
-        ort = []
         if arg is 'first':
             pref_ort = self.NA_list[0].get_pref_ort(time)
 
@@ -176,18 +177,22 @@ class RecordingDay:
 
             self.good_cells = self.good_cells[mask]
 
+            for na in self.NA_list:
+                na.set_cell(self.good_cells)
 
-        for na in self.NA_list:
-            na.set_cell(self.good_cells)
-            r = na.get_fr(times=np.argmin(np.abs(self.edges - time)))
-            theta = np.zeros((na.n_trial, na.n_cell))
-            for k, cell in enumerate(self.good_cells):
-                offset = center - pref_ort[cell]
-                theta[:, k] = na.get_theta(offset)
-            fr.append(r)
-            ort.append(theta)
-
-        return fr, ort
+        # offset = center - pref_ort
+        #
+        # #     r = na.get_fr(times=np.argmin(np.abs(self.edges - time)))
+        # #     theta = np.zeros((na.n_trial, na.n_cell))
+        # #     for k, cell in enumerate(self.good_cells):
+        # #         offset = center - pref_ort[cell]
+        # #         theta[:, k] = na.get_theta(offset)
+        # #     fr.append(r)
+        # #     ort.append(theta)
+        # #
+        # # return fr, ort
+        #
+        # return offset
 
     def set_tau(self, tau):
         for na in self.NA_list:
@@ -373,15 +378,16 @@ class RecordingDay:
         conditions). Plot comprise of the average firing rate for each orientation (with std error whiskers) with a von
         mises fit overlay
         """
+        vis_lat_idx = int(np.argmin(np.abs(self.edges - vis_lat)))
 
-        if aligned:
-            center = self.n_ort // 2
-            fr, ort = self.aligned_ort(center, vis_lat)
-            print('aligned cells', self.good_cells)
+        # if aligned:
+        #     center = self.n_ort // 2
+        #     self.aligned_ort(center, vis_lat_idx)
+        #     print('aligned cells', self.good_cells)
 
         pref_ort = []
         for na in self.NA_list:
-            pref_ort.append(na.get_pref_ort(vis_lat))
+            pref_ort.append(na.get_pref_ort(vis_lat_idx))
 
         # initialize the figure
         if not size:
@@ -395,17 +401,19 @@ class RecordingDay:
         for j, cell in enumerate(self.good_cells):
             for k, na in enumerate(self.NA_list):
                 if aligned:
-                    r = fr[k][:, j]
-                    theta = ort[k][:, j]
+                    center = self.n_ort // 2
+                    offset = pref_ort[k] - center
+                    r = na.get_fr(cell=cell, times=vis_lat_idx)
+                    theta = na.get_theta(offset=offset[cell], cell=cell)
                     vonmises_params = VonMises.fit(r, theta)
                     # vonmises_params[3] = 0
                     # vonmises_params[0] = 1
                     axs[m, n].axvline(x=np.radians(self.angles[center]), c=color_list[k])
 
                 else:
-                    r = na.data_dict['tuning']['fr'][:, j]
-                    theta = na.data_dict['tuning']['ort']
-                    vonmises_params = na.data_dict['tuning']['vonmises_param'][:, j]
+                    r = na.get_fr(cell=cell, times=vis_lat_idx)
+                    theta = na.get_theta(offset=0, cell=cell)
+                    vonmises_params = VonMises.fit(r, theta)
                     axs[m, n].axvline(x=np.radians(self.angles[pref_ort[k][cell]]), c=color_list[k])
 
                 # plot best fit + data

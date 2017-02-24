@@ -24,7 +24,6 @@ class NeuronArray:
         # Probe Location
         assert n_locations == (data[condition].shape[1] - 1) / self.n_ort
         self.n_loc = n_locations
-        self.pref_loc = np.ones(self.n_cell)
 
         # Firing Rate: X[n_trial, n_cell, n_times
         # Probe Orientation: Y[n_trial]
@@ -33,11 +32,9 @@ class NeuronArray:
             self.X = []
             self.Y = []
             for i in range(n_locations):
-                x, y = build_static(data, condition, np.arange(self.n_time), location=i, n_locations=n_locations)
+                x, y, _ = build_static(data, condition, np.arange(self.n_time), location=i, n_locations=n_locations)
                 self.X.append(x)
                 self.Y.append(y)
-
-
 
         else:
             self.X, self.Y, self.probe_lat = build_static(data, condition, np.arange(self.n_time), location=0,
@@ -49,7 +46,13 @@ class NeuronArray:
         # No probe Firing rate Data
         self.X_no, _, _ = build_static(data, condition, np.arange(self.n_time), noProbe=True)
 
-        self.n_trial, self.n_cell, _ = self.X.shape
+        if self.n_loc == 1:
+            self.n_trial, self.n_cell, _ = self.X.shape
+        else:
+            self.n_trial, self.n_cell, _ = self.X[0].shape
+
+        self.pref_loc = np.full((self.n_cell,), -1, 'int16')
+
         self.n_booth_trial = self.n_trial
 
         # self.trial_mask = np.ones(self.n_trial, 'bool')
@@ -57,7 +60,7 @@ class NeuronArray:
 
         self.p_val = np.ones((self.n_cell, self.n_time))
         self.cell_mask = np.ones(self.n_cell, 'bool')
-        self.visual_latency = np.ones((self.n_cell,)) * 0.125
+        self.visual_latency = np.full((self.n_cell,), 0.125)
 
         self.remap_cells_mask = np.zeros(self.n_cell)
         self.remap_latency = np.zeros(self.n_cell)
@@ -78,10 +81,13 @@ class NeuronArray:
 
     def ks_test(self):
         for t in range(self.n_time):
-            for i in range(self.n_cell):
-                pref_or = find_peak(self.X[:, i, t], self.Y)
-                D, pval = ks_2samp(self.X_no[:, i, t], self.X[self.Y == pref_or, i, t])
-                self.p_val[i, t] = pval
+            for c in range(self.n_cell):
+                fr = self.get_fr(cell=c, times=t)
+                ort = self.get_ort(cell=c)
+                # print(type(fr), ort.shape)
+                pref_or = find_peak(fr, ort)
+                D, pval = ks_2samp(self.X_no[:, c, t], fr[ort == pref_or])
+                self.p_val[c, t] = pval
 
     def trial_selection(self, bounds):
         mini, maxi = bounds
@@ -147,7 +153,7 @@ class NeuronArray:
             for cell in range(96):
                 self.X[self.Y == unique, cell, :] = np.random.permutation(self.X[self.Y == unique, cell, :])
 
-    def smooth(self):
+    def smooth(self, Fr):
         """
         Return smoothed firing rate
         Exponential causal filter, for 'retino' condition the firing rate is not smoothed across the saccade
@@ -159,27 +165,27 @@ class NeuronArray:
             zero_idx = np.argmin(np.abs(self.edges))
 
             for t in range(zero_idx):
-                R[:, :, t] = np.sum(self.X[:, :, :t + 1] * np.exp(-(self.edges[t] - self.edges[:t + 1]) / self.tau), axis=2)
+                R[:, :, t] = np.sum(Fr[..., :t + 1] * np.exp(-(self.edges[t] - self.edges[:t + 1]) / self.tau), axis=2)
 
             for t in range(zero_idx, self.n_time):
-                R[:, :, t] = np.sum(self.X[:, :, zero_idx:t + 1] * np.exp(-(self.edges[t] - self.edges[zero_idx:t + 1]) / self.tau), axis=2)
+                R[:, :, t] = np.sum(Fr[..., zero_idx:t + 1] * np.exp(-(self.edges[t] - self.edges[zero_idx:t + 1]) / self.tau), axis=2)
 
         else:
             for t in range(self.n_time):
-                R[:, :, t] = np.sum(self.X[:, :, :t + 1] * np.exp(-(self.edges[t] - self.edges[:t + 1]) / self.tau), axis=2)
+                R[:, :, t] = np.sum(Fr[..., :t + 1] * np.exp(-(self.edges[t] - self.edges[:t + 1]) / self.tau), axis=2)
 
         return R
 
-    def normalize(self):
+    def normalize(self, Fr):
         # Return Normalize Firing rate
         # method:   'pink'  - Percentage Increase from baseline
         #           'sub'   - Baseline Substracted
 
         if self.method == 'pink':
-            fr = (self.X - self.baseline[np.newaxis, :, np.newaxis]) / self.baseline[np.newaxis, :, np.newaxis]
+            fr = (Fr - self.baseline[np.newaxis, :, np.newaxis]) / self.baseline[np.newaxis, :, np.newaxis]
 
         elif self.method == 'sub':
-            fr = (self.X - self.baseline[np.newaxis, :, np.newaxis])
+            fr = (Fr - self.baseline[np.newaxis, :, np.newaxis])
 
         else: fr = self.X
 
@@ -216,16 +222,63 @@ class NeuronArray:
 
     def set_pref_ort(self, t=None):
         # find the prefered orientation for each cell at visual latency
-        theta = self.get_theta()
-        for i in np.nonzero(self.cell_mask)[0]:
+        for cell in np.nonzero(self.cell_mask)[0]:
             if t:
-                vis_lat_idx = np.argmin(np.abs(self.edges - t))
+                vis_lat_idx = int(np.argmin(np.abs(self.edges - t)))
             else:
-                vis_lat_idx = np.argmin(np.abs(self.edges - self.visual_latency[i]))
-            r = self.X[:, i, vis_lat_idx]
+                vis_lat_idx = int(np.argmin(np.abs(self.edges - self.visual_latency[cell])))
+            r = self.get_fr(cell=cell, times=vis_lat_idx)
+            theta = self.get_theta(cell=cell)
             params = VonMises.fit(r, theta)
-            self.pref_ort[i] = find_closest(np.unique(theta), params[0])
-            self.null_ort[i] = find_null(np.unique(theta), params[0])
+            self.pref_ort[cell] = find_closest(np.unique(theta), params[0])
+            self.null_ort[cell] = find_null(np.unique(theta), params[0])
+
+    def set_pref_loc(self):
+        vis_lat = 0.125
+        vis_lat_idx = int(np.argmin(np.abs(self.edges-vis_lat)))
+
+        for cell in range(self.n_cell):
+            loc = -1
+            maxav = -np.inf
+            for l in range(self.n_loc):
+                av = np.mean(self.X[l][:, cell, vis_lat_idx])
+                if av > maxav:
+                    loc = l
+                    maxav = av
+            self.pref_loc[cell] = loc
+
+        # y = np.zeros((1,))
+        # max_trial_ort = []
+        # for i in range(self.n_ort):
+        #     max_trial = -np.inf
+        #     for j in range(self.n_loc):
+        #         temp_trial = (self.Y[j] == i).sum()
+        #         if temp_trial > max_trial:
+        #             max_trial = temp_trial
+        #     y = np.hstack((y, (np.full((max_trial,), i, dtype='int16'))))
+        #     max_trial_ort.append(max_trial)
+        #
+        # y = y[1:]
+        # x = np.full((y.shape[0], self.n_cell, self.n_time), np.nan)
+        #
+        # for k in range(self.n_cell):
+        #     pref_loc = -1
+        #     avg_fr = -np.inf
+        #     for j in range(self.n_loc):
+        #         temp_avg_fr = np.mean(self.X[j][:,k,vis_lat_idx])
+        #         if temp_avg_fr > avg_fr:
+        #             avg_fr = temp_avg_fr
+        #             pref_loc = j
+        #
+        #     tr = 0
+        #     for i in range(self.n_ort):
+        #         temp_trial = self.X[pref_loc][self.Y[pref_loc]==i, k, :].shape[0]
+        #         x[tr:tr+max_trial_ort[i], k, :] = self.X[pref_loc][self.Y[pref_loc]==i, k, :][np.random.choice(temp_trial, max_trial_ort[i], replace=True), ...]
+        #         tr += max_trial_ort[i]
+        #
+        # self.X, self.Y = x, y
+
+        # print(self.X[:, 2, vis_lat_idx])
 
     def set_booth_trial(self):
         trials = np.nonzero(self.trial_mask)[0]
@@ -233,21 +286,31 @@ class NeuronArray:
         self.booth_mask[:] = False
         self.booth_mask[trials] = True
 
-    def get_fr(self, booth=False, smooth=False, normal=False, times=None):
+    def get_fr(self, booth=False, smooth=False, normal=False, times=None, cell=None):
+        if self.n_loc == 1:
+            fr = self.X
+            if cell is None:
+                cell = self.cell_mask
+        else:
+            if cell is None:
+                cell = self.cell_mask
+                fr = self.X[self.pref_loc[0]]
+            else:
+                fr = self.X[self.pref_loc[cell]]
+
         if times is None:
             times = np.arange(self.n_time)
+
         if smooth:
-            fr = self.smooth()
+            fr = self.smooth(fr)
 
-        elif normal:
-            fr = self.normalize()
-
-        else: fr = self.X
+        if normal:
+            fr = self.normalize(fr)
 
         if booth:
-            fr = fr[self.booth_mask, ...][:, self.cell_mask, :][:, :, times]
-        else:
-            fr = fr[:, self.cell_mask, :][:, :, times]
+            fr = fr[self.booth_mask, ...]
+
+        fr = fr[:, cell, times]
 
         return fr
 
@@ -263,11 +326,17 @@ class NeuronArray:
 
         return pref_fr, null_fr
 
-    def get_ort(self, booth=False):
-        if booth:
-            ort = self.Y[self.booth_mask]
+    def get_ort(self, booth=False, cell=None):
+        if self.n_loc == 1:
+            y = self.Y
         else:
-            ort = self.Y
+            y = self.Y[self.pref_loc[cell]]
+
+        if booth:
+            ort = y[self.booth_mask]
+        else:
+            ort = y
+
         return ort
 
     def get_pref_ort(self, t):
@@ -377,18 +446,23 @@ class NeuronArray:
         self.data_dict['decode'] = {'decoding_tc': decoding_tc_est.mean(axis=1), 'decoding_tc_err': decoding_err_est.mean(axis=1),
                                                     'info': '%s_booth%i' % (name, n_est)}
 
-    def get_theta(self, offset=None):
+    def get_theta(self, offset=None, cell=0):
         """ Transform orientation [0, 4] to rad angles
         :param y: orientation vector
         :return: radians angles vector
         """
-        theta = np.zeros(self.Y.shape)
+        if self.n_loc == 1:
+            y = self.Y
+
+        else:
+            y = self.Y[self.pref_loc[cell]]
+
+        theta = np.zeros(y.shape)
 
         if offset:
-            # print('offset: ', offset, '\n Y:', self.Y, '\n Off Y:', (self.Y + offset) % self.n_ort)
-            ort = (self.Y + offset) % self.n_ort
+            ort = (y + offset) % self.n_ort
         else:
-            ort = self.Y
+            ort = y
 
         for i, a in enumerate(ort):
             theta[i, ] = np.radians(self.angles[int(a)]) % np.pi
@@ -409,13 +483,13 @@ class NeuronArray:
 
         vonmises_params = np.zeros((4, self.n_cell))
         good_cells = np.nonzero(self.cell_mask)[0]
-        theta = self.get_theta()
 
         for j, cell in enumerate(good_cells):
             # for k in range(n_conditions):
             # find best fit
-            r = self.X[:, cell, np.argmin(abs(self.edges-time))]
+            theta = self.get_theta(cell=cell)
+            r = self.get_fr(times=time, cell=cell)
             vonmises_params[:, j] = VonMises.fit(r, theta)
 
-        self.data_dict['tuning'] = {'vonmises_param': vonmises_params, 'fr': self.X[:, good_cells, np.argmin(abs(self.edges-time))], 'ort': theta, 'cells': good_cells}
+        self.data_dict['tuning'] = {'vonmises_param': vonmises_params, 'fr': self.X, 'ort': self.Y, 'cells': good_cells, 'pref_loc': self.pref_loc}
 
