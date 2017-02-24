@@ -13,16 +13,16 @@ color_list = ['blue', 'black', 'red', 'green', 'orange', 'magenta']
 good_cell_dic = {'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89],
                  'p131': [34, 35, 40, 52, 67, 69, 71, 84, 87, 88, 89],
                  'p132': [15, 34, 40, 88, 89],
-                 'p135': [33, 34, 35, 39, 40, 41, 51, 63, 67, 78, 82, 80, 83, 85, 84, 88, 89]
+                 'p135': [40, 41, 63, 72, 73, 82, 83, 84, 85, 86, 87, 88, 89, 90]
                  }
 
-n_location_list = {'p134': 2,
 
+n_location_list = {'p134': 2,
                    'p135': 2
-                }
+                  }
 
 class RecordingDay:
-    def __init__(self, day, conditions, alpha):
+    def __init__(self, day, conditions, alpha, loc=0):
         path = glob.glob('data/%s*' % day)
         print(path[0])
         path = path[0]
@@ -49,17 +49,22 @@ class RecordingDay:
         self.NA_list = []
 
         if day in n_location_list.keys():
-            n_location = n_location_list[day]
+            n_loc = n_location_list[day]
             for i in range(n_condition):
                 assert conditions[i] in data.keys()
-                self.NA_list.append(NA(data, conditions[i], n_location))
+                self.NA_list.append(NA(data, conditions[i], n_loc))
 
         else:
             for i in range(n_condition):
                 assert conditions[i] in data.keys()
                 self.NA_list.append(NA(data, conditions[i]))
 
-        # self.trial_select([-0.25, -0.025])
+
+
+        bounds = [-0.1, -0.025]
+        if 'openloop' in path:
+            self.trial_select(bounds)
+
         self.cell_select(alpha)
 
         # if 'presac_retino_only' in data.keys():
@@ -155,7 +160,7 @@ class RecordingDay:
         #     na.Y = na.Y[train_idx]
         # na.n_trial = min_trials
 
-    def aligned_ort(self, center, time, arg='first'):
+    def aligned_ort(self, center, time, arg='indep'):
         """
         For all conditions, align all cell to the the same prefered orientation, according to the first condition prefered orientation.
         :return:
@@ -179,6 +184,18 @@ class RecordingDay:
 
             for na in self.NA_list:
                 na.set_cell(self.good_cells)
+
+        # for na in self.NA_list:
+        #     if arg is 'indep':
+        #         pref_ort = na.get_pref_ort(time)
+        #     na.set_cell(self.good_cells)
+        #     r = na.get_fr(times=np.argmin(np.abs(self.edges - time)))
+        #     theta = np.zeros((na.n_trial, na.n_cell))
+        #     for k, cell in enumerate(self.good_cells):
+        #         offset = center - pref_ort[cell]
+        #         theta[:, k] = na.get_theta(offset)
+        #     fr.append(r)
+        #     ort.append(theta)
 
         # offset = center - pref_ort
         #
@@ -387,7 +404,9 @@ class RecordingDay:
 
         pref_ort = []
         for na in self.NA_list:
-            pref_ort.append(na.get_pref_ort(vis_lat_idx))
+            pref_ort.append(na.get_pref_ort(vis_lat))
+
+        print(pref_ort[0][self.good_cells])
 
         # initialize the figure
         if not size:
@@ -402,9 +421,10 @@ class RecordingDay:
             for k, na in enumerate(self.NA_list):
                 if aligned:
                     center = self.n_ort // 2
-                    offset = pref_ort[k] - center
+                    offset = center - pref_ort[k]
                     r = na.get_fr(cell=cell, times=vis_lat_idx)
                     theta = na.get_theta(offset=offset[cell], cell=cell)
+                    print(cell, pref_ort[k][cell], offset[cell])
                     vonmises_params = VonMises.fit(r, theta)
                     # vonmises_params[3] = 0
                     # vonmises_params[0] = 1
@@ -423,7 +443,7 @@ class RecordingDay:
 
                 # axs[m, n].axvline(x=vonmises_params[0])
 
-            axs[m, n].set_title('Cell #%i' % (cell))
+            axs[m, n].set_title('Cell #%i, loc %i' % (cell, na.pref_loc[cell]))
             # axs[m, n].axis('off')
             m += 1
             if m % size == 0:

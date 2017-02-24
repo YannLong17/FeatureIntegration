@@ -31,23 +31,23 @@ def main(args, files, conditions):
 
         rd = RD(file, conditions, alpha)
 
-        if 'early trial' in args:
-            bounds = [-0.15, -0.075]
-            signature += 'early150_75'
-        elif 'mid trial' in args:
-            bounds = [-0.1, -0.05]
-            signature += 'mid100_50'
-        elif 'good trial' in args:
-            bounds = [-0.075, -0.025]
-            signature += 'sac75_25'
-        elif 'late trial' in args:
-            bounds = [-0.01, 0.05]
-            signature += 'late'
-        else:
-            bounds = [-np.inf, np.inf]
-
-        if day_list[file] is 'open_loop':
-            rd.trial_select(bounds)
+        # if 'early trial' in args:
+        #     bounds = [-0.15, -0.075]
+        #     signature += 'early150_75'
+        # elif 'mid trial' in args:
+        #     bounds = [-0.1, -0.05]
+        #     signature += 'mid100_50'
+        # elif 'good trial' in args:
+        #     bounds = [-0.075, -0.025]
+        #     signature += 'sac75_25'
+        # elif 'late trial' in args:
+        #     bounds = [-0.01, 0.05]
+        #     signature += 'late'
+        # else:
+        #     bounds = [-np.inf, np.inf]
+        #
+        # if day_list[file] is 'open_loop':
+        #     rd.trial_select(bounds)
 
         # rd.cell_select(alpha)
 
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     args = []
     # args += ['decoding', 'smooth']
     # args += ['firing rate', 'sub']
-    args += ['tuning curve', 'cbca']
+    args += ['tuning curve', 'cbca', 'popavg']
     args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     # args += ['good trial']

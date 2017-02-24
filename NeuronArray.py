@@ -10,7 +10,7 @@ from HelperFun import *
 
 
 class NeuronArray:
-    def __init__(self, data, condition, n_locations=1):
+    def __init__(self, data, condition, n_locations=1, location=0):
         self.condition = condition
 
         # Time axis
@@ -25,6 +25,10 @@ class NeuronArray:
         assert n_locations == (data[condition].shape[1] - 1) / self.n_ort
         self.n_loc = n_locations
 
+        self.n_cell = 96
+        self.pref_loc = np.full((self.n_cell,), 0, 'int16')
+
+
         # Firing Rate: X[n_trial, n_cell, n_times
         # Probe Orientation: Y[n_trial]
         # Probe latency: probe_lat[n_trial]
@@ -35,6 +39,8 @@ class NeuronArray:
                 x, y, _ = build_static(data, condition, np.arange(self.n_time), location=i, n_locations=n_locations)
                 self.X.append(x)
                 self.Y.append(y)
+
+            self.set_pref_loc()
 
         else:
             self.X, self.Y, self.probe_lat = build_static(data, condition, np.arange(self.n_time), location=0,
@@ -50,8 +56,6 @@ class NeuronArray:
             self.n_trial, self.n_cell, _ = self.X.shape
         else:
             self.n_trial, self.n_cell, _ = self.X[0].shape
-
-        self.pref_loc = np.full((self.n_cell,), -1, 'int16')
 
         self.n_booth_trial = self.n_trial
 
@@ -226,7 +230,9 @@ class NeuronArray:
             if t:
                 vis_lat_idx = int(np.argmin(np.abs(self.edges - t)))
             else:
-                vis_lat_idx = int(np.argmin(np.abs(self.edges - self.visual_latency[cell])))
+                # vis_lat_idx = int(np.argmin(np.abs(self.edges - self.visual_latency[cell])))
+                vis_lat_idx = int(np.argmin(np.abs(self.edges - 0.125)))
+
             r = self.get_fr(cell=cell, times=vis_lat_idx)
             theta = self.get_theta(cell=cell)
             params = VonMises.fit(r, theta)
@@ -310,6 +316,7 @@ class NeuronArray:
         if booth:
             fr = fr[self.booth_mask, ...]
 
+        # print(cell, times)
         fr = fr[:, cell, times]
 
         return fr
@@ -480,6 +487,7 @@ class NeuronArray:
         """
         Find tuning curve for all the good cells with a von mises fit
         """
+        t = np.argmin(abs(self.edges - time))
 
         vonmises_params = np.zeros((4, self.n_cell))
         good_cells = np.nonzero(self.cell_mask)[0]
@@ -488,7 +496,7 @@ class NeuronArray:
             # for k in range(n_conditions):
             # find best fit
             theta = self.get_theta(cell=cell)
-            r = self.get_fr(times=time, cell=cell)
+            r = self.get_fr(times=t, cell=cell)
             vonmises_params[:, j] = VonMises.fit(r, theta)
 
         self.data_dict['tuning'] = {'vonmises_param': vonmises_params, 'fr': self.X, 'ort': self.Y, 'cells': good_cells, 'pref_loc': self.pref_loc}
