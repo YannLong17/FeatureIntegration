@@ -19,7 +19,8 @@ day_list = {'p128':'open_loop',
             'p131': 'closed_loop',
             'p132': 'closed_loop',
             'p134': 'closed_loop',
-            'p135': 'closed_loop'
+            'p135': 'closed_loop',
+            'p136': 'closed_loop'
             }
 
 def main(args, files, conditions):
@@ -30,6 +31,8 @@ def main(args, files, conditions):
         alpha = 0.01
 
         rd = RD(file, conditions, alpha)
+
+        rd.set_vis_lat(0.125)
 
         # if 'early trial' in args:
         #     bounds = [-0.15, -0.075]
@@ -70,21 +73,25 @@ def main(args, files, conditions):
             elif 'sub' in args:
                 normal = 'sub'
 
-            rd.firing_rate(normal)
+            if 'all' in args:
+                arg='all'
+            else:
+                arg='ovr'
 
-            rd.plot_firing_rate(normal, signature)
+            # rd.firing_rate(normal)
+
+            rd.plot_firing_rate(normal, signature, arg=arg)
 
         if 'tuning curve' in args:
-            vis_lat = 0.125
-            rd.tuning(vis_lat)
+            rd.tuning()
             if 'popavg' in args:
-                rd.plot_pop_tuning(vis_lat, arg='ovr')
+                rd.plot_pop_tuning(arg='ovr')
             if 'popall' in args:
-                rd.plot_pop_tuning(vis_lat, arg='all')
+                rd.plot_pop_tuning(arg='all')
             if 'cbc' in args:
-                rd.plot_tuning_curves(vis_lat, False, 2)
+                rd.plot_tuning_curves(False, 2)
             if 'cbca' in args:
-                rd.plot_tuning_curves(vis_lat, True)
+                rd.plot_tuning_curves(True)
 
         if 'decoding' in args:
             # choose the learner
@@ -164,7 +171,7 @@ if __name__ == '__main__':
 
     # Choose the file to analyse
     files = []
-    files += ['p135']
+    files += ['p137']
 
     # Cell selection
     kosher = False
@@ -195,8 +202,8 @@ if __name__ == '__main__':
 
     args = []
     # args += ['decoding', 'smooth']
-    # args += ['firing rate', 'sub']
-    args += ['tuning curve', 'cbca', 'popavg']
+    args += ['firing rate', 'sub']
+    # args += ['tuning curve', 'cbca', 'popavg']
     args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     # args += ['good trial']

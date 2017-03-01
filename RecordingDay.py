@@ -9,17 +9,21 @@ from fittingFun import VonMises
 from sklearn.cross_validation import cross_val_score, StratifiedShuffleSplit, StratifiedKFold
 
 
-color_list = ['blue', 'black', 'red', 'green', 'orange', 'magenta']
+color_list = ['blue', 'red', 'black', 'green', 'orange', 'magenta']
 good_cell_dic = {'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89],
                  'p131': [34, 35, 40, 52, 67, 69, 71, 84, 87, 88, 89],
                  'p132': [15, 34, 40, 88, 89],
-                 'p135': [40, 41, 63, 72, 73, 82, 83, 84, 85, 86, 87, 88, 89, 90]
+                 'p135': [40, 41, 63, 72, 73, 82, 83, 84, 85, 86, 87, 88, 89, 90],
+                 'p136': [34, 35, 39, 40, 41, 42, 49, 51, 63, 72, 73, 74, 81, 84, 85, 88, 90],
+                 'p137': [38, 40, 41, 83, 82, 88, 87]
                  }
 
 
-n_location_list = {'p134': 2,
-                   'p135': 2
-                  }
+# n_location_list = {'p134': 2,
+#                    'p135': 2,
+#                    'p136': 2,
+#                    'p137': 2,
+#                   }
 
 class RecordingDay:
     def __init__(self, day, conditions, alpha, loc=0):
@@ -35,6 +39,10 @@ class RecordingDay:
         self.edges = np.ravel(data['edges'])
         self.n_time = self.edges.shape[0]
 
+        # Visual Latency
+        self.vis_lat = 0.125
+        self.vis_lat_idx = int(np.argmin(abs(self.edges - self.vis_lat)))
+
         # Orientations
         self.angles = np.ravel(data['makeStim']['ort'][0, 0])
         self.n_ort = self.angles.shape[0]
@@ -44,22 +52,24 @@ class RecordingDay:
         if day in good_cell_dic.keys():
             self.good_cells = good_cell_dic[day]
 
+        # Locations
+        self.n_loc = (data[conditions[0]].shape[1] - 1) // self.n_ort
+
         # Initialize
+        self.conditions = conditions
         n_condition = len(conditions)
         self.NA_list = []
 
-        if day in n_location_list.keys():
-            n_loc = n_location_list[day]
+        if self.n_loc > 1:
+            # n_loc = n_location_list[day]
             for i in range(n_condition):
                 assert conditions[i] in data.keys()
-                self.NA_list.append(NA(data, conditions[i], n_loc))
+                self.NA_list.append(NA(data, conditions[i], self.n_loc))
 
         else:
             for i in range(n_condition):
                 assert conditions[i] in data.keys()
                 self.NA_list.append(NA(data, conditions[i]))
-
-
 
         bounds = [-0.1, -0.025]
         if 'openloop' in path:
@@ -136,6 +146,10 @@ class RecordingDay:
 
         for na in self.NA_list:
             na.n_booth_trial = min_trials
+
+    def set_vis_lat(self, vis_lat):
+        self.vis_lat = vis_lat
+        self.vis_lat_idx = int(np.argmin(abs(self.edges - self.vis_lat)))
 
     def trial_select(self, bounds):
         for na in self.NA_list:
@@ -288,7 +302,7 @@ class RecordingDay:
         plt.savefig(filepath)
         plt.close(fig)
 
-    def plot_firing_rate(self, normal, name, null_orientation=True, savemat=False):
+    def plot_firing_rate(self, normal, name, null_orientation=True, arg=None, savemat=False):
         """ find the average and std err firing rate for prefered and null orientation for all times"""
 
         if null_orientation:
@@ -302,58 +316,131 @@ class RecordingDay:
         y_max = -np.inf
 
         for k, na in enumerate(self.NA_list):
+            pref_fr = []
+            null_fr = []
 
-            pref_fr = na.data_dict['fr%s' % normal]['pref_fr']
-            null_fr = na.data_dict['fr%s' % normal]['null_fr']
+            na.set_pref_ort(self.vis_lat)
+            pref_ort = na.get_pref_ort()
+            null_ort = na.get_null_ort()
 
-            mean_pref_fr = pref_fr.mean(axis=1)
-            std_pref_fr = pref_fr.std(axis=1, ddof=1) / np.sqrt(na.n_cell)
-            mean_null_fr = null_fr.mean(axis=1)
-            std_null_fr = null_fr.std(axis=1, ddof=1) / np.sqrt(na.n_cell)
-        #
-        #     if savemat:
-        #         dict[na.condition] = {'Prefered_Orientation': pref_fr, 'Null_Orientation': null_fr}
+            if normal:
+                na.set_baseline()
 
-            # plot the results
-            y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
-            y_min = min(np.min(mean_pref_fr - std_pref_fr), y_min)
+            for j, cell in enumerate(self.good_cells):
+                r = na.get_fr(cell=cell, normal=normal)
+                ort = na.get_ort(cell=cell)
+                pref_fr.append(r[ort == pref_ort[cell]])
+                null_fr.append(r[ort == null_ort[cell]])
 
-            axs[0].plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k])
-            axs[0].fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.25,
-                                    facecolor=color_list[k])
-            axs[0].set_ylim((y_min, y_max))
-            axs[0].set_title('Preferred Orientation')
-            axs[0].grid(True)
-            axs[0].set_xlabel('Time')
-            axs[0].set_xticks(na.edges[np.arange(na.n_time, step=4)])
-            axs[0].legend(loc='upper left')
+            if arg is 'ovr':
+                pref_r = np.zeros((1, self.n_time))
+                null_r = np.zeros((1, self.n_time))
 
-            if normal == 'pink':
-                axs[0].set_ylabel('Firing Rate % Increase r. Base')
-                axs[0].axhline(y=0)
-            elif normal == 'sub':
-                axs[0].set_ylabel('Firing Rate Spike Increase r. Base')
-                axs[0].axhline(y=0)
-            else:
-                axs[0].set_ylabel('Firing Rate')
+                for j in range(len(pref_fr)):
+                    pref_r = np.vstack((pref_r, pref_fr[j]))
+                    null_r = np.vstack((null_r, null_fr[j]))
 
-            if null_orientation:
-                axs[1].plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k])
-                axs[1].fill_between(na.edges, mean_null_fr - std_null_fr, mean_null_fr + std_null_fr, alpha=0.25,
+                mean_pref_fr = pref_r.mean(axis=0)
+                std_pref_fr = pref_r.std(axis=0, ddof=1) / np.sqrt(na.n_cell)
+                mean_null_fr = null_r.mean(axis=0)
+                std_null_fr = null_r.std(axis=0, ddof=1) / np.sqrt(na.n_cell)
+
+                # plot the results
+                y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
+                y_min = min(np.min(mean_pref_fr - std_pref_fr), y_min)
+
+                axs[0].plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k])
+                axs[0].fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.25,
                                         facecolor=color_list[k])
-                axs[1].set_ylim((y_min, y_max))
-                axs[1].set_title('Null Orientation')
-                axs[1].grid(True)
-                axs[1].set_xticks(na.edges[np.arange(na.n_time, step=4)])
+                axs[0].set_ylim((y_min, y_max))
+                axs[0].set_title('Preferred Orientation')
+                axs[0].grid(True)
+                axs[0].set_xlabel('Time')
+                axs[0].set_xticks(na.edges[np.arange(na.n_time, step=4)])
+                axs[0].legend(loc='upper left')
 
                 if normal == 'pink':
-                    # axs[1].set_ylabel('Firing Rate \% Increase r. Base')
-                    axs[1].axhline(y=0)
+                    axs[0].set_ylabel('Firing Rate % Increase r. Base')
+                    axs[0].axhline(y=0)
                 elif normal == 'sub':
-                    # axs[1].set_ylabel('Firing Rate Spike Increase r. Base')
-                    axs[1].axhline(y=0)
-                    # else:
-                    # axs[1].set_ylabel('Firing Rate')
+                    axs[0].set_ylabel('Firing Rate Spike Increase r. Base')
+                    axs[0].axhline(y=0)
+                else:
+                    axs[0].set_ylabel('Firing Rate')
+
+                if null_orientation:
+                    axs[1].plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k])
+                    axs[1].fill_between(na.edges, mean_null_fr - std_null_fr, mean_null_fr + std_null_fr,
+                                            alpha=0.25,
+                                            facecolor=color_list[k])
+                    axs[1].set_ylim((y_min, y_max))
+                    axs[1].set_title('Null Orientation')
+                    axs[1].grid(True)
+                    axs[1].set_xticks(na.edges[np.arange(na.n_time, step=4)])
+
+                    if normal == 'pink':
+                        # axs[1].set_ylabel('Firing Rate \% Increase r. Base')
+                        axs[1].axhline(y=0)
+                    elif normal == 'sub':
+                        # axs[1].set_ylabel('Firing Rate Spike Increase r. Base')
+                        axs[1].axhline(y=0)
+                        # else:
+                        # axs[1].set_ylabel('Firing Rate')
+
+            elif arg is 'all':
+                # cmap = plt.get_cmap('jet')
+                # colors = cmap(np.linspace(0, 1.0, len(self.good_cells)))
+                for j, cell in enumerate(self.good_cells):
+                    mean_pref_fr = pref_fr[j].mean(axis=0)
+                    std_pref_fr = pref_fr[j].std(axis=0, ddof=1) / np.sqrt(pref_fr[j].shape[0])
+                    mean_null_fr = null_fr[j].mean(axis=0)
+                    std_null_fr = null_fr[j].std(axis=0, ddof=1) / np.sqrt(null_fr[j].shape[0])
+
+                    # plot the results
+                    y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
+                    y_min = min(np.min(mean_pref_fr - std_pref_fr), y_min)
+
+                    axs[0].plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k])
+                    # Error bar
+                    # axs[0].fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.25,
+                    #                      facecolor=color_list[k])
+                    axs[0].set_ylim((y_min, y_max))
+                    axs[0].set_title('Preferred Orientation')
+                    axs[0].grid(True)
+                    axs[0].set_xlabel('Time')
+                    axs[0].set_xticks(na.edges[np.arange(na.n_time, step=4)])
+
+                    if normal == 'pink':
+                        axs[0].set_ylabel('Firing Rate % Increase r. Base')
+                        axs[0].axhline(y=0)
+                    elif normal == 'sub':
+                        axs[0].set_ylabel('Firing Rate Spike Increase r. Base')
+                        axs[0].axhline(y=0)
+                    else:
+                        axs[0].set_ylabel('Firing Rate')
+
+                    if null_orientation:
+                        axs[1].plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k])
+                        ## error bar
+                        # axs[1].fill_between(na.edges, mean_null_fr - std_null_fr, mean_null_fr + std_null_fr,
+                        #                     alpha=0.25,
+                        #                     facecolor=color_list[k])
+                        axs[1].set_ylim((y_min, y_max))
+                        axs[1].set_title('Null Orientation')
+                        axs[1].grid(True)
+                        axs[1].set_xticks(na.edges[np.arange(na.n_time, step=4)])
+
+                        if normal == 'pink':
+                            # axs[1].set_ylabel('Firing Rate \% Increase r. Base')
+                            axs[1].axhline(y=0)
+                        elif normal == 'sub':
+                            # axs[1].set_ylabel('Firing Rate Spike Increase r. Base')
+                            axs[1].axhline(y=0)
+                            # else:
+                            # axs[1].set_ylabel('Firing Rate')
+
+        handles, label = axs[0].get_legend_handles_labels()
+        axs[0].legend((handles[0], handles[-1]), (label[0], label[-1]), loc='upper left')
 
         if not os.path.exists('%sfiring_rate/' % self.figpath):
             os.makedirs('%sfiring_rate/' % self.figpath)
@@ -389,14 +476,12 @@ class RecordingDay:
         plt.show()
         plt.close(fig)
 
-    def plot_tuning_curves(self, vis_lat, aligned=False, size=None):
+    def plot_tuning_curves(self, aligned=False, size=None):
         """
         Plot the tuning curve for all the good cells, for all conditions (each cell is a separate subplot, with every
         conditions). Plot comprise of the average firing rate for each orientation (with std error whiskers) with a von
         mises fit overlay
         """
-        vis_lat_idx = int(np.argmin(np.abs(self.edges - vis_lat)))
-
         # if aligned:
         #     center = self.n_ort // 2
         #     self.aligned_ort(center, vis_lat_idx)
@@ -404,7 +489,7 @@ class RecordingDay:
 
         pref_ort = []
         for na in self.NA_list:
-            pref_ort.append(na.get_pref_ort(vis_lat))
+            pref_ort.append(na.get_pref_ort(self.vis_lat))
 
         print(pref_ort[0][self.good_cells])
 
@@ -422,16 +507,16 @@ class RecordingDay:
                 if aligned:
                     center = self.n_ort // 2
                     offset = center - pref_ort[k]
-                    r = na.get_fr(cell=cell, times=vis_lat_idx)
+                    r = na.get_fr(cell=cell, times=self.vis_lat_idx)
                     theta = na.get_theta(offset=offset[cell], cell=cell)
-                    print(cell, pref_ort[k][cell], offset[cell])
+                    # print(cell, pref_ort[k][cell], offset[cell])
                     vonmises_params = VonMises.fit(r, theta)
                     # vonmises_params[3] = 0
                     # vonmises_params[0] = 1
                     axs[m, n].axvline(x=np.radians(self.angles[center]), c=color_list[k])
 
                 else:
-                    r = na.get_fr(cell=cell, times=vis_lat_idx)
+                    r = na.get_fr(cell=cell, times=self.vis_lat_idx)
                     theta = na.get_theta(offset=0, cell=cell)
                     vonmises_params = VonMises.fit(r, theta)
                     axs[m, n].axvline(x=np.radians(self.angles[pref_ort[k][cell]]), c=color_list[k])
@@ -453,17 +538,17 @@ class RecordingDay:
                 n = 0
                 handles, labels = axs[0, 0].get_legend_handles_labels()
                 fig.legend(handles, labels, loc='lower right')
-                save_fig(fig, '%stuning_curve/' % self.figpath, '%s_tuningCurve%i' % (self.day, int(vis_lat*100)))
+                save_fig(fig, '%stuning_curve/' % self.figpath, '%s_tuningCurve%i' % (self.day, int(self.vis_lat*100)))
                 fig, axs = plt.subplots(size, size, sharex=True, sharey=False)
         if fig:
             handles, labels = axs[0, 0].get_legend_handles_labels()
             fig.legend(handles, labels, loc='lower right')
-            save_fig(fig, '%stuning_curve/' % self.figpath, '%s_tuningCurve%i' % (self.day, int(vis_lat * 100)))
+            save_fig(fig, '%stuning_curve/' % self.figpath, '%s_tuningCurve%i' % (self.day, int(self.vis_lat * 100)))
 
     def plot_pop_tuning(self, vis_lat, normal=True, arg='ovr'):
 
         center = self.n_ort // 2
-        fr, ort = self.aligned_ort(center, vis_lat)
+        vis_lat_idx = int(np.argmin(np.abs(self.edges - vis_lat)))
 
         if arg is 'ovr':
             fig, axs = plt.subplots(1, 1)
@@ -473,26 +558,41 @@ class RecordingDay:
         thet = np.linspace(0, np.pi, 100)
 
         for k, na in enumerate(self.NA_list):
-            r, theta = fr[k], ort[k]
-
-            if normal:
-                for j, cell in enumerate(self.good_cells):
+            fr = []
+            ort = []
+            pref_ort = na.get_pref_ort(vis_lat)
+            for j, cell in enumerate(self.good_cells):
+                offset = center - pref_ort[cell]
+                r = na.get_fr(cell=cell, times=vis_lat_idx)
+                theta = na.get_theta(offset=offset, cell=cell)
+                if normal:
                     mini = np.inf
                     maxi = -np.inf
-                    for o in np.unique(theta[:, j]):
-                        mu = r[theta[:, j] == o, j].mean()
+                    for o in np.unique(theta):
+                        mu = r[theta == o].mean()
                         if mu < mini:
                             mini = mu
                         if mu > maxi:
                             maxi = mu
                     # r[:, j] = (r[:, j] - np.min(r[:, j]))/(np.max(r[:, j])-np.min(r[:, j]))
                     # temp = np.maximum(r[:, j] - mini, np.zeros(r[:, j].shape))
-                    r[:, j] = (r[:, j] - mini)/(maxi-mini)
+                    r = (r - mini)/(maxi-mini)
+                fr.append(r)
+                ort.append(theta)
 
             if arg is 'ovr':
-                r = np.reshape(r.T, (r.size,))
+                r = np.zeros((1,))
+                theta = np.zeros((1,))
+                for j in range(len(fr)):
+                    r = np.hstack((r, fr[j]))
+                    theta = np.hstack((theta, ort[j]))
+
+                r = r[1:]
+                theta = theta[1:]
+                print(r.shape)
+                # r= np.reshape(r.T, (r.size,))
                 # print('normal', np.min(r), np.max(r))
-                theta = np.reshape(theta.T, (theta.size,))
+                # theta = np.reshape(theta.T, (theta.size,))
                 vonmises_params = VonMises.fit(r, theta)
                 axs.plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=color_list[k])
                 plot_wiskers(theta, r, axs, label='', color=color_list[k])
@@ -501,13 +601,13 @@ class RecordingDay:
                 cmap = plt.get_cmap('jet')
                 colors = cmap(np.linspace(0, 1.0, len(self.good_cells)))
                 for j, cell in enumerate(self.good_cells):
-                    vonmises_params = VonMises.fit(r[:, j], theta[:, j])
+                    vonmises_params = VonMises.fit(fr[j], ort[j])
                     # print(vonmises_params)
                     # vonmises_params[3] = 0
                     # vonmises_params[0] = 1
 
                     axs[k].plot(thet, VonMises.vonmises(thet, vonmises_params), label=na.condition, c=colors[j])
-                    plot_wiskers(theta[:, j], r[:, j], axs[k], label='', color=colors[j])
+                    plot_wiskers(ort[j], fr[j], axs[k], label='', color=colors[j])
 
                 axs[k].set_ylim([0, 1])
                 axs[k].set_title('%s' % na.condition)

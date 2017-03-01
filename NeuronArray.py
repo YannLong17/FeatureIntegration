@@ -180,18 +180,17 @@ class NeuronArray:
 
         return R
 
-    def normalize(self, Fr):
+    def normalize(self, Fr, method=None):
         # Return Normalize Firing rate
         # method:   'pink'  - Percentage Increase from baseline
         #           'sub'   - Baseline Substracted
 
-        if self.method == 'pink':
+        if method == 'pink':
             fr = (Fr - self.baseline[np.newaxis, :, np.newaxis]) / self.baseline[np.newaxis, :, np.newaxis]
 
-        elif self.method == 'sub':
-            fr = (Fr - self.baseline[np.newaxis, :, np.newaxis])
-
-        else: fr = self.X
+        elif method == 'sub':
+            fr = Fr - self.baseline[np.newaxis, :, np.newaxis]
+        else: fr = Fr
 
         return fr
 
@@ -222,7 +221,8 @@ class NeuronArray:
     def set_baseline(self, baseline_time=-0.150):
         baseline_mask = (self.edges < baseline_time)
         # print(self.X[self.trial_mask, ...][..., baseline_mask].shape)
-        self.baseline = self.X[..., baseline_mask].mean(axis=(0, 2))
+        for cell in np.nonzero(self.cell_mask)[0]:
+            self.baseline[cell] = self.X[self.pref_loc[cell]][:, cell, baseline_mask].mean(axis=(0, 1))
 
     def set_pref_ort(self, t=None):
         # find the prefered orientation for each cell at visual latency
@@ -311,13 +311,13 @@ class NeuronArray:
             fr = self.smooth(fr)
 
         if normal:
-            fr = self.normalize(fr)
+            fr = self.normalize(fr, normal)
 
         if booth:
             fr = fr[self.booth_mask, ...]
 
-        # print(cell, times)
-        fr = fr[:, cell, times]
+        fr = fr[:, cell, :]
+        fr = fr[..., times]
 
         return fr
 
@@ -346,9 +346,13 @@ class NeuronArray:
 
         return ort
 
-    def get_pref_ort(self, t):
-        self.set_pref_ort(t)
+    def get_pref_ort(self):
+        # self.set_pref_ort(t)
         return self.pref_ort
+
+    def get_null_ort(self):
+        # self.set_pref_ort(t)
+        return self.null_ort
 
     def get_good_cells(self):
         return np.nonzero(self.cell_mask)
