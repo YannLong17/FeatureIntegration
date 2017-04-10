@@ -23,14 +23,18 @@ day_list = {'p128':'open_loop',
             'p136': 'closed_loop'
             }
 
-def main(args, files, conditions):
+def main(args, files, conditions, location=None):
     for file in files:
-        signature = ''
+        if location is not None:
+            signature = '%i' % location
+        else: signature = ''
         figpath = 'results/Decoding Analysis/%s/' % file  # where you want to save the figures
 
         alpha = 0.01
 
-        rd = RD(file, conditions, alpha)
+
+        rd = RD(file, conditions, alpha, location)
+
 
         rd.set_vis_lat(0.125)
 
@@ -72,6 +76,8 @@ def main(args, files, conditions):
                 normal = 'pink'
             elif 'sub' in args:
                 normal = 'sub'
+            elif 'std' in args:
+                normal = 'std'
 
             if 'all' in args:
                 arg='all'
@@ -85,7 +91,7 @@ def main(args, files, conditions):
         if 'tuning curve' in args:
             rd.tuning()
             if 'popavg' in args:
-                rd.plot_pop_tuning(arg='ovr')
+                 rd.plot_pop_tuning(arg='ovr')
             if 'popall' in args:
                 rd.plot_pop_tuning(arg='all')
             if 'cbc' in args:
@@ -98,6 +104,8 @@ def main(args, files, conditions):
             # Uncomment the learner you want to use
             # learner = SVC(kernel='linear', C=0.00002, class_weight='balanced', decision_function_shape='ovr')
 
+
+
             if 'quick' in args:
                 learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
                 name = 'LR'
@@ -108,9 +116,14 @@ def main(args, files, conditions):
                 name = 'ET'
                 n_fold = 'max'
 
+            if location is not None:
+                name = '%s%i' %(name, location)
+
             # choose the scorer
-            from sklearn.metrics import accuracy_score, make_scorer
-            scorer = make_scorer(accuracy_score, greater_is_better=True)
+            # from HelperFun import bias_score, error_dist
+            from sklearn.metrics import accuracy_score
+            scorer = accuracy_score
+            # scorer = bias_score
 
             if 'equal' in args:
                 rd.equalize_trials()
@@ -137,9 +150,17 @@ def main(args, files, conditions):
                 name += 'booth%i' % booth
             else: booth = 0
 
-            rd.decode(learner, scorer, smooth, name, n_folds=n_fold, booth=booth)
+            if 'neutral' in args:
+                if 'std' in args:
+                    normal = 'std'
+                else:
+                    normal = 'raw'
 
-            rd.plot_decoding_time_course(name)
+                rd.neutral_decode(learner, scorer, smooth, name, normal)
+            else:
+                rd.decode(learner, scorer, smooth, name, n_folds=n_fold, booth=booth)
+
+            rd.plot_decoding_time_course(name, 'Accuracy')
 
             # if 'savemat' in args:
             #     tempdict = {}
@@ -171,7 +192,7 @@ if __name__ == '__main__':
 
     # Choose the file to analyse
     files = []
-    files += ['p137']
+    files += ['p095']
 
     # Cell selection
     kosher = False
@@ -182,6 +203,8 @@ if __name__ == '__main__':
             # 'jumble': remove the correlation stucture
             # 'equal': equalize the number of trials between conditions
             # 'boothstrap': boothstrap estimate for post condition
+            # 'neutral'
+            # 'std':
 
         # 'firing rate' -- plot the firing rate time course for conditions
             # 'raw': no baseline correction
@@ -201,15 +224,20 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    # args += ['decoding', 'smooth']
+    args += ['decoding']
     args += ['firing rate', 'sub']
-    # args += ['tuning curve', 'cbca', 'popavg']
-    args += ['savemat', 'overwrite']
+    # args += ['tuning curve', 'popavg']
+    # args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     # args += ['good trial']
-    args += ['pref_loc']
-    # args += ['quick']
+    # args += ['pref_loc']
+    # args += ['all_loc']
+    args += ['quick']
 
-    main(args, files, conditions)
+    if 'all_loc' in args:
+        for location in range(2):
+            main(args, files, conditions, location)
 
+    else:
+        main(args, files, conditions)
 

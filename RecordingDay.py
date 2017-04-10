@@ -10,7 +10,8 @@ from sklearn.cross_validation import cross_val_score, StratifiedShuffleSplit, St
 
 
 color_list = ['blue', 'red', 'black', 'green', 'orange', 'magenta']
-good_cell_dic = {'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89],
+good_cell_dic = {
+                 'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89],
                  'p131': [34, 35, 40, 52, 67, 69, 71, 84, 87, 88, 89],
                  'p132': [15, 34, 40, 88, 89],
                  'p135': [40, 41, 63, 72, 73, 82, 83, 84, 85, 86, 87, 88, 89, 90],
@@ -18,15 +19,17 @@ good_cell_dic = {'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88
                  'p137': [38, 40, 41, 83, 82, 88, 87]
                  }
 
+# 'p121': [34, 41, 80]
 
-# n_location_list = {'p134': 2,
+# n_location_list = {'p091': 2,
+#                    'p134': 2,
 #                    'p135': 2,
 #                    'p136': 2,
 #                    'p137': 2,
 #                   }
 
 class RecordingDay:
-    def __init__(self, day, conditions, alpha, loc=0):
+    def __init__(self, day, conditions, alpha, location):
         path = glob.glob('data/%s*' % day)
         print(path[0])
         path = path[0]
@@ -60,22 +63,18 @@ class RecordingDay:
         n_condition = len(conditions)
         self.NA_list = []
 
-        if self.n_loc > 1:
-            # n_loc = n_location_list[day]
-            for i in range(n_condition):
-                assert conditions[i] in data.keys()
-                self.NA_list.append(NA(data, conditions[i], self.n_loc))
+        for i in range(n_condition):
+            assert conditions[i] in data.keys()
+            self.NA_list.append(NA(data, conditions[i], location))
 
-        else:
-            for i in range(n_condition):
-                assert conditions[i] in data.keys()
-                self.NA_list.append(NA(data, conditions[i]))
-
-        bounds = [-0.1, -0.025]
+        bounds = [-0.075, -0.025]
         if 'openloop' in path:
             self.trial_select(bounds)
 
         self.cell_select(alpha)
+
+        for na in self.NA_list:
+            na.set_baseline()
 
         # if 'presac_retino_only' in data.keys():
         #     self.NA_fix = NA(data, 'presac_retino_only')
@@ -254,6 +253,21 @@ class RecordingDay:
                 else:
                     na.decoding(learner, scorer, smooth, name, n_folds)
 
+    def neutral_decode(self, learner, scorer, smooth, name, normal):
+        # Train Learner on first condition at time
+        na = self.NA_list[0]
+
+        ort = na.get_ort()
+        fr = na.get_fr(times=self.vis_lat_idx, smooth=smooth, normal=normal)
+
+        print(ort.shape, fr.shape)
+        learner.fit(fr, ort)
+        print('trained')
+
+        for na in self.NA_list:
+            na.decoding(learner, scorer, smooth, name, normal, train=False)
+
+
     def firing_rate(self, normal):
         for na in self.NA_list:
             if na.exist_data('fr%s' % normal):
@@ -262,7 +276,8 @@ class RecordingDay:
             else:
                 na.firing_rate_data(normal)
 
-    def tuning(self, time):
+    def tuning(self):
+        time = self.vis_lat
         for na in self.NA_list:
             if na.exist_data('tuning%i' % time):
                 if self.save is 'over':
@@ -271,7 +286,7 @@ class RecordingDay:
                 na.tuning(time)
 
     ### Plotting Fun ###
-    def plot_decoding_time_course(self, name):
+    def plot_decoding_time_course(self, name, scorer_name):
         # plot the result
         fig, axs = plt.subplots(1, 1, sharex=True, sharey=True)
 
@@ -279,12 +294,15 @@ class RecordingDay:
             decoding_tc = na.data_dict['decode']['decoding_tc']
             decoding_tc_err = na.data_dict['decode']['decoding_tc_err']
 
-            l1, = axs.plot(na.edges, decoding_tc, label=na.condition, c=color_list[k], linewidth=.5)
+            l1, = axs.plot(na.edges, decoding_tc, label=na.condition, c=color_list[k], linewidth=2)
             axs.fill_between(na.edges, decoding_tc + decoding_tc_err, decoding_tc - decoding_tc_err,
                              facecolor=color_list[k], alpha=0.25)
 
-        axs.axhline(y=1. / self.n_ort)
-        axs.set_ylabel('Accuracy')
+        if scorer_name is 'Accuracy':
+            axs.axhline(y=1. / self.n_ort)
+
+        axs.set_ylabel(scorer_name)
+
         axs.set_xlabel('Time')
         axs.set_xticks(self.edges[np.arange(self.n_time, step=4)])
         axs.legend(loc='lower left')
@@ -323,8 +341,8 @@ class RecordingDay:
             pref_ort = na.get_pref_ort()
             null_ort = na.get_null_ort()
 
-            if normal:
-                na.set_baseline()
+            # if normal:
+            #     na.set_baseline()
 
             for j, cell in enumerate(self.good_cells):
                 r = na.get_fr(cell=cell, normal=normal)
@@ -489,7 +507,7 @@ class RecordingDay:
 
         pref_ort = []
         for na in self.NA_list:
-            pref_ort.append(na.get_pref_ort(self.vis_lat))
+            pref_ort.append(na.get_pref_ort())
 
         print(pref_ort[0][self.good_cells])
 
@@ -545,10 +563,10 @@ class RecordingDay:
             fig.legend(handles, labels, loc='lower right')
             save_fig(fig, '%stuning_curve/' % self.figpath, '%s_tuningCurve%i' % (self.day, int(self.vis_lat * 100)))
 
-    def plot_pop_tuning(self, vis_lat, normal=True, arg='ovr'):
+    def plot_pop_tuning(self, arg='ovr'):
 
         center = self.n_ort // 2
-        vis_lat_idx = int(np.argmin(np.abs(self.edges - vis_lat)))
+        vis_lat_idx = int(np.argmin(np.abs(self.edges - self.vis_lat)))
 
         if arg is 'ovr':
             fig, axs = plt.subplots(1, 1)
@@ -560,23 +578,11 @@ class RecordingDay:
         for k, na in enumerate(self.NA_list):
             fr = []
             ort = []
-            pref_ort = na.get_pref_ort(vis_lat)
+            pref_ort = na.get_pref_ort()
             for j, cell in enumerate(self.good_cells):
                 offset = center - pref_ort[cell]
-                r = na.get_fr(cell=cell, times=vis_lat_idx)
+                r = na.get_fr(cell=cell, times=vis_lat_idx, normal='std')
                 theta = na.get_theta(offset=offset, cell=cell)
-                if normal:
-                    mini = np.inf
-                    maxi = -np.inf
-                    for o in np.unique(theta):
-                        mu = r[theta == o].mean()
-                        if mu < mini:
-                            mini = mu
-                        if mu > maxi:
-                            maxi = mu
-                    # r[:, j] = (r[:, j] - np.min(r[:, j]))/(np.max(r[:, j])-np.min(r[:, j]))
-                    # temp = np.maximum(r[:, j] - mini, np.zeros(r[:, j].shape))
-                    r = (r - mini)/(maxi-mini)
                 fr.append(r)
                 ort.append(theta)
 
@@ -619,7 +625,7 @@ class RecordingDay:
         if not os.path.exists('%stuning_curve/' % self.figpath):
             os.makedirs('%stuning_curve/' % self.figpath)
 
-        filepath = '%stuning_curve/%s_tuningCurve%i' % (self.figpath, self.day, int(vis_lat*100))
+        filepath = '%stuning_curve/%s_tuningCurve%i' % (self.figpath, self.day, int(self.vis_lat*100))
         i = 0
         while glob.glob('%s%i.*' % (filepath, i)):
             i += 1

@@ -76,7 +76,34 @@ def build_static(dat, condition, times, location=0, n_locations=1, noProbe=False
 
     return X, y, probe_latency
 
+def bias_score(y, y_pred, n_ort=4):
+    n = y.shape[0]
+    assert y_pred.shape[0] == n
+    score = 0
+    for i in range(n):
+        d = dist(y[i], y_pred[i])
 
+        if d == 0:
+            score += 1
+        elif d == 2:
+            score -= 1
+
+    return score/n
+
+def error_dist(y, y_pred,):
+    n = y.shape[0]
+    assert y_pred.shape[0] == n
+    d = 0
+    for i in range(n):
+        d += dist(y[i], y_pred[i])
+
+    return d/n
+
+def dist(t, p):
+    d = int(abs(t-p))
+    if d == 3:
+        d =1
+    return d
 
 def ks_test(X, X_no):
     _, n_cell, n_time = X.shape
