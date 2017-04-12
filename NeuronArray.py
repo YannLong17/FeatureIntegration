@@ -51,7 +51,7 @@ class NeuronArray:
                 self.probe_lat_list.append(lat)
             self.set_pref_loc()
 
-        if self.condition is 'postsac_change':
+        if 'change' in self.condition:
              self.flip_ort()
 
         # No probe Firing rate Data
@@ -178,7 +178,7 @@ class NeuronArray:
         :return: filtered X, where each entry is a weighted sum of all the previous entries, with weights exp(-(dt/tau))
         """
         R = np.zeros(self.X.shape)
-        if 'retino' in self.condition:
+        if 'bob' in self.condition:
             zero_idx = np.argmin(np.abs(self.edges))
 
             for t in range(zero_idx):

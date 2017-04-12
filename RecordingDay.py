@@ -9,7 +9,7 @@ from fittingFun import VonMises
 from sklearn.cross_validation import cross_val_score, StratifiedShuffleSplit, StratifiedKFold
 
 
-color_list = ['blue', 'red', 'black', 'green', 'orange', 'magenta']
+color_list = ['blue', 'black', 'red', 'green', 'orange', 'magenta']
 good_cell_dic = {
                  'p128': [15, 16, 30, 32, 34, 35, 40, 66, 80, 82, 83, 86, 87, 88, 89],
                  'p131': [34, 35, 40, 52, 67, 69, 71, 84, 87, 88, 89],
@@ -67,8 +67,9 @@ class RecordingDay:
             assert conditions[i] in data.keys()
             self.NA_list.append(NA(data, conditions[i], location))
 
-        bounds = [-0.075, -0.025]
+        bounds = [-0.05, -0.01]
         if 'openloop' in path:
+            print('open-loop, bounds = ', bounds)
             self.trial_select(bounds)
 
         self.cell_select(alpha)
@@ -296,7 +297,7 @@ class RecordingDay:
 
             l1, = axs.plot(na.edges, decoding_tc, label=na.condition, c=color_list[k], linewidth=2)
             axs.fill_between(na.edges, decoding_tc + decoding_tc_err, decoding_tc - decoding_tc_err,
-                             facecolor=color_list[k], alpha=0.25)
+                             facecolor=color_list[k], alpha=0.15)
 
         if scorer_name is 'Accuracy':
             axs.axhline(y=1. / self.n_ort)
@@ -367,13 +368,13 @@ class RecordingDay:
                 y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
                 y_min = min(np.min(mean_pref_fr - std_pref_fr), y_min)
 
-                axs[0].plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k])
-                axs[0].fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.25,
+                axs[0].plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k], linewidth=2)
+                axs[0].fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.15,
                                         facecolor=color_list[k])
                 axs[0].set_ylim((y_min, y_max))
                 axs[0].set_title('Preferred Orientation')
                 axs[0].grid(True)
-                axs[0].set_xlabel('Time')
+
                 axs[0].set_xticks(na.edges[np.arange(na.n_time, step=4)])
                 axs[0].legend(loc='upper left')
 
@@ -387,13 +388,14 @@ class RecordingDay:
                     axs[0].set_ylabel('Firing Rate')
 
                 if null_orientation:
-                    axs[1].plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k])
+                    axs[1].plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k], linewidth=2)
                     axs[1].fill_between(na.edges, mean_null_fr - std_null_fr, mean_null_fr + std_null_fr,
-                                            alpha=0.25,
+                                            alpha=0.15,
                                             facecolor=color_list[k])
                     axs[1].set_ylim((y_min, y_max))
                     axs[1].set_title('Null Orientation')
                     axs[1].grid(True)
+                    axs[1].set_xlabel('Time')
                     axs[1].set_xticks(na.edges[np.arange(na.n_time, step=4)])
 
                     if normal == 'pink':
@@ -457,8 +459,8 @@ class RecordingDay:
                             # else:
                             # axs[1].set_ylabel('Firing Rate')
 
-        handles, label = axs[0].get_legend_handles_labels()
-        axs[0].legend((handles[0], handles[-1]), (label[0], label[-1]), loc='upper left')
+        handles, labels = axs[0].get_legend_handles_labels()
+        axs[0].legend(handles, labels, loc='upper left')
 
         if not os.path.exists('%sfiring_rate/' % self.figpath):
             os.makedirs('%sfiring_rate/' % self.figpath)

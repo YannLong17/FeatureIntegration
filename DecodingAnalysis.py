@@ -15,7 +15,7 @@ from RecordingDay import RecordingDay as RD
 from HelperFun import load
 
 
-day_list = {'p128':'open_loop',
+day_list = {'p128': 'open_loop',
             'p131': 'closed_loop',
             'p132': 'closed_loop',
             'p134': 'closed_loop',
@@ -104,8 +104,6 @@ def main(args, files, conditions, location=None):
             # Uncomment the learner you want to use
             # learner = SVC(kernel='linear', C=0.00002, class_weight='balanced', decision_function_shape='ovr')
 
-
-
             if 'quick' in args:
                 learner = LogisticRegression(penalty='l2', multi_class='multinomial', solver='lbfgs', C=7.75)
                 name = 'LR'
@@ -120,10 +118,10 @@ def main(args, files, conditions, location=None):
                 name = '%s%i' %(name, location)
 
             # choose the scorer
-            # from HelperFun import bias_score, error_dist
+            from HelperFun import bias_score, error_dist
             from sklearn.metrics import accuracy_score
-            scorer = accuracy_score
-            # scorer = bias_score
+            # scorer = accuracy_score
+            scorer = bias_score
 
             if 'equal' in args:
                 rd.equalize_trials()
@@ -188,11 +186,11 @@ if __name__ == '__main__':
     conditions = []
     # uncomment the conditions you want
     #
-    conditions += ['postsac', 'presac']
+    conditions += ['presac', 'postsac', 'postsac_change']
 
     # Choose the file to analyse
     files = []
-    files += ['p095']
+    files += ['p091']
 
     # Cell selection
     kosher = False
@@ -224,14 +222,14 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    args += ['decoding']
-    args += ['firing rate', 'sub']
+    args += ['decoding', 'smooth']
+    # args += ['firing rate', 'sub']
     # args += ['tuning curve', 'popavg']
     # args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     # args += ['good trial']
     # args += ['pref_loc']
-    # args += ['all_loc']
+    args += ['all_loc']
     args += ['quick']
 
     if 'all_loc' in args:
