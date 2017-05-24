@@ -215,10 +215,11 @@ def save_fig(fig, directory, name):
     while glob.glob('%s%i.*' % (filepath, i)):
         i += 1
 
-    filepath = '%s%i' % (filepath, i)
+    filepath = '%s%i.eps' % (filepath, i)
 
-    fig.savefig(filepath, dpi=300)
+    fig.savefig(filepath, format='eps', dpi=1200)
     plt.close(fig)
+    print('saved! at %s' % filepath)
 
 def loadmat(filename):
     '''

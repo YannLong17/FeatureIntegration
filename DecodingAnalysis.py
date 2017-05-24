@@ -86,7 +86,10 @@ def main(args, files, conditions, location=None):
 
             # rd.firing_rate(normal)
 
-            rd.plot_firing_rate(normal, signature, arg=arg)
+            rd.plot_firing_rate(normal, signature, arg='diff')
+            rd.plot_firing_rate(normal, signature, arg='null')
+            rd.plot_firing_rate(normal, signature)
+
 
         if 'tuning curve' in args:
             rd.tuning()
@@ -187,10 +190,11 @@ if __name__ == '__main__':
     # uncomment the conditions you want
     #
     conditions += ['presac', 'postsac', 'postsac_change']
+    # conditions += ['presac_only']
 
     # Choose the file to analyse
     files = []
-    files += ['p091']
+    files += ['p094']
 
     # Cell selection
     kosher = False
@@ -222,15 +226,15 @@ if __name__ == '__main__':
         # 'write': output basic information to a text file
 
     args = []
-    args += ['decoding', 'smooth']
-    # args += ['firing rate', 'sub']
+    # args += ['decoding', 'smooth']
+    args += ['firing rate', 'sub']
     # args += ['tuning curve', 'popavg']
     # args += ['savemat', 'overwrite']
     # args += ['orientation bias']
     # args += ['good trial']
     # args += ['pref_loc']
-    args += ['all_loc']
-    args += ['quick']
+    # args += ['all_loc']
+    # args += ['quick']
 
     if 'all_loc' in args:
         for location in range(2):

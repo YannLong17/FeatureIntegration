@@ -51,6 +51,7 @@ class RecordingDay:
         self.n_ort = self.angles.shape[0]
 
         # Good_cells
+
         self.good_cells = np.arange(96)
         if day in good_cell_dic.keys():
             self.good_cells = good_cell_dic[day]
@@ -67,7 +68,7 @@ class RecordingDay:
             assert conditions[i] in data.keys()
             self.NA_list.append(NA(data, conditions[i], location))
 
-        bounds = [-0.05, -0.01]
+        bounds = [0, 0.01]
         if 'openloop' in path:
             print('open-loop, bounds = ', bounds)
             self.trial_select(bounds)
@@ -321,13 +322,9 @@ class RecordingDay:
         plt.savefig(filepath)
         plt.close(fig)
 
-    def plot_firing_rate(self, normal, name, null_orientation=True, arg=None, savemat=False):
+    def plot_firing_rate(self, normal, name, arg='pref', savemat=False):
         """ find the average and std err firing rate for prefered and null orientation for all times"""
-
-        if null_orientation:
-            n_plot = 2
-        else:
-            n_plot = 1
+        n_plot = 1
 
         fig, axs = plt.subplots(n_plot, 1, sharex=True)
 
@@ -351,61 +348,76 @@ class RecordingDay:
                 pref_fr.append(r[ort == pref_ort[cell]])
                 null_fr.append(r[ort == null_ort[cell]])
 
-            if arg is 'ovr':
-                pref_r = np.zeros((1, self.n_time))
-                null_r = np.zeros((1, self.n_time))
+            pref_r = np.zeros((1, self.n_time))
+            null_r = np.zeros((1, self.n_time))
 
-                for j in range(len(pref_fr)):
-                    pref_r = np.vstack((pref_r, pref_fr[j]))
-                    null_r = np.vstack((null_r, null_fr[j]))
+            for j in range(len(pref_fr)):
+                pref_r = np.vstack((pref_r, pref_fr[j]))
+                null_r = np.vstack((null_r, null_fr[j]))
 
-                mean_pref_fr = pref_r.mean(axis=0)
-                std_pref_fr = pref_r.std(axis=0, ddof=1) / np.sqrt(na.n_cell)
-                mean_null_fr = null_r.mean(axis=0)
-                std_null_fr = null_r.std(axis=0, ddof=1) / np.sqrt(na.n_cell)
+            mean_pref_fr = pref_r.mean(axis=0)
+            std_pref_fr = pref_r.std(axis=0, ddof=1) / np.sqrt(na.n_cell)
+            mean_null_fr = null_r.mean(axis=0)
+            std_null_fr = null_r.std(axis=0, ddof=1) / np.sqrt(na.n_cell)
 
-                # plot the results
-                y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
-                y_min = min(np.min(mean_pref_fr - std_pref_fr), y_min)
+            # plot the results
+            y_max = max(np.max(mean_pref_fr + std_pref_fr), y_max)
+            y_min = min(np.min(mean_pref_fr - std_pref_fr), y_min)
 
-                axs[0].plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k], linewidth=2)
-                axs[0].fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.15,
+            if arg is 'diff':
+                axs.plot(na.edges, mean_pref_fr - mean_null_fr, label=na.condition, c=color_list[k], linewidth=2)
+                axs.fill_between(na.edges, mean_pref_fr - mean_null_fr - np.sqrt(np.power(std_pref_fr,2) + np.power(std_null_fr,2)), mean_pref_fr - mean_null_fr + np.sqrt(np.power(std_pref_fr,2) + np.power(std_null_fr,2)),
+                                         alpha=0.2,
+                                         facecolor=color_list[k])
+                # axs.set_title()
+                axs.grid(True)
+                axs.set_xlabel('time (s)')
+                axs.set_ylabel('Spike Rate Increase between prefered and null orientation')
+                axs.set_xticks(na.edges[np.arange(na.n_time, step=4)])
+                axs.axhline(y=0)
+
+                handles, labels = axs.get_legend_handles_labels()
+                axs.legend(handles, labels, loc='upper left')
+
+            elif arg is 'null':
+                axs.plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k], linewidth=2)
+                    ## error bar
+                axs.fill_between(na.edges, mean_null_fr - std_null_fr, mean_null_fr + std_null_fr,
+                                        alpha=0.2,
+                                         facecolor=color_list[k])
+                axs.set_ylim((y_min, y_max))
+                # axs.set_title('Null Orientation')
+                axs.grid(True)
+                axs.set_xticks(na.edges[np.arange(na.n_time, step=4)])
+                axs.set_xlabel('time (s)')
+                axs.set_ylabel('Spike Rate Increase r. Base')
+                axs.axhline(y=0)
+
+            elif arg is 'pref':
+
+                axs.plot(na.edges, mean_pref_fr, label=na.condition, c=color_list[k], linewidth=2)
+                axs.fill_between(na.edges, mean_pref_fr - std_pref_fr, mean_pref_fr + std_pref_fr, alpha=0.15,
                                         facecolor=color_list[k])
-                axs[0].set_ylim((y_min, y_max))
-                axs[0].set_title('Preferred Orientation')
-                axs[0].grid(True)
+                axs.set_ylim((y_min, y_max))
+                # axs.set_title('Preferred Orientation')
+                axs.grid(True)
+                axs.set_xlabel('time (s)')
 
-                axs[0].set_xticks(na.edges[np.arange(na.n_time, step=4)])
-                axs[0].legend(loc='upper left')
+                axs.set_xticks(na.edges[np.arange(na.n_time, step=4)])
+                axs.legend(loc='upper left')
 
-                if normal == 'pink':
-                    axs[0].set_ylabel('Firing Rate % Increase r. Base')
-                    axs[0].axhline(y=0)
-                elif normal == 'sub':
-                    axs[0].set_ylabel('Firing Rate Spike Increase r. Base')
-                    axs[0].axhline(y=0)
-                else:
-                    axs[0].set_ylabel('Firing Rate')
+                # if normal == 'pink':
+                #     axs.set_ylabel('Firing Rate % Increase r. Base')
+                #     axs.axhline(y=0)
+                # elif normal == 'sub':
+                axs.set_ylabel('Spike Rate Increase r. Base')
+                axs.axhline(y=0)
+                # else:
+                #     axs.set_ylabel('Firing Rate')
 
-                if null_orientation:
-                    axs[1].plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k], linewidth=2)
-                    axs[1].fill_between(na.edges, mean_null_fr - std_null_fr, mean_null_fr + std_null_fr,
-                                            alpha=0.15,
-                                            facecolor=color_list[k])
-                    axs[1].set_ylim((y_min, y_max))
-                    axs[1].set_title('Null Orientation')
-                    axs[1].grid(True)
-                    axs[1].set_xlabel('Time')
-                    axs[1].set_xticks(na.edges[np.arange(na.n_time, step=4)])
 
-                    if normal == 'pink':
-                        # axs[1].set_ylabel('Firing Rate \% Increase r. Base')
-                        axs[1].axhline(y=0)
-                    elif normal == 'sub':
-                        # axs[1].set_ylabel('Firing Rate Spike Increase r. Base')
-                        axs[1].axhline(y=0)
-                        # else:
-                        # axs[1].set_ylabel('Firing Rate')
+                handles, labels = axs.get_legend_handles_labels()
+                axs.legend(handles, labels, loc='upper left')
 
             elif arg is 'all':
                 # cmap = plt.get_cmap('jet')
@@ -439,40 +451,14 @@ class RecordingDay:
                     else:
                         axs[0].set_ylabel('Firing Rate')
 
-                    if null_orientation:
-                        axs[1].plot(na.edges, mean_null_fr, label=na.condition, c=color_list[k])
-                        ## error bar
-                        # axs[1].fill_between(na.edges, mean_null_fr - std_null_fr, mean_null_fr + std_null_fr,
-                        #                     alpha=0.25,
-                        #                     facecolor=color_list[k])
-                        axs[1].set_ylim((y_min, y_max))
-                        axs[1].set_title('Null Orientation')
-                        axs[1].grid(True)
-                        axs[1].set_xticks(na.edges[np.arange(na.n_time, step=4)])
 
-                        if normal == 'pink':
-                            # axs[1].set_ylabel('Firing Rate \% Increase r. Base')
-                            axs[1].axhline(y=0)
-                        elif normal == 'sub':
-                            # axs[1].set_ylabel('Firing Rate Spike Increase r. Base')
-                            axs[1].axhline(y=0)
-                            # else:
-                            # axs[1].set_ylabel('Firing Rate')
 
-        handles, labels = axs[0].get_legend_handles_labels()
-        axs[0].legend(handles, labels, loc='upper left')
+                handles, labels = axs.get_legend_handles_labels()
+                axs.legend(handles, labels, loc='upper left')
 
-        if not os.path.exists('%sfiring_rate/' % self.figpath):
-            os.makedirs('%sfiring_rate/' % self.figpath)
 
-        filepath = '%sfiring_rate/%s%s%s_pop_FR' % (self.figpath, self.day, normal, name)
-        i = 0
-        while glob.glob('%s%i.*' % (filepath, i)):
-            i += 1
+        save_fig(fig, '%sfiring_rate/' % self.figpath, '%s%s%s%s_pop_FR' % (self.day, normal, name, arg))
 
-        filepath = '%s%i' % (filepath, i)
-        plt.savefig(filepath)
-        plt.close(fig)
 
     def plot_orientation_bias(self):
 
